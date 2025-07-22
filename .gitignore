@@ -1,4 +1,14 @@
-venv/
-__pycache__/
-*.pyc
-.env
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+
+# Frontend (나중에 추가될 것)
+frontend/node_modules/
+frontend/.DS_Store
+frontend/build/
+
+# IDE 설정 파일
+.idea/
+.vscode/
