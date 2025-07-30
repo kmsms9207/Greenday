@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()
 
 # 1. .env 파일에서 환경 변수를 로드합니다.
 #    이 코드가 .env 파일에 있는 변수들을 읽어들입니다.
