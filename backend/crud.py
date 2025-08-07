@@ -1,33 +1,29 @@
 from sqlalchemy.orm import Session
-from models import User
-from schemas import UserCreate  # Pydantic 모델 (요청 데이터 형식에 따라 다를 수 있음)
-from werkzeug.security import generate_password_hash
+import models, schemas
+from core.security import get_password_hash # werkzeug 대신 passlib 사용
 
-# 1. 이메일로 사용자 찾기
 def get_user_by_email(db: Session, email: str):
-    return db.query(User).filter(User.email == email).first()
+    return db.query(models.User).filter(models.User.email == email).first()
 
-# 2. 사용자 이름으로 사용자 찾기
 def get_user_by_username(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
+    return db.query(models.User).filter(models.User.username == username).first()
 
-# 3. 사용자 생성
-def create_user(db: Session, user: UserCreate):
-    hashed_password = generate_password_hash(user.password)
-    db_user = User(
-        username=user.username,
+def create_user(db: Session, user: schemas.UserCreate):
+    # Flask의 werkzeug 대신 FastAPI와 함께 사용하는 passlib으로 암호화
+    hashed_password = get_password_hash(user.password)
+    db_user = models.User(
         email=user.email,
-        password=hashed_password,
-        is_verified=False  # 기본값으로 이메일 인증은 False
+        username=user.username,
+        name=user.name, # name 필드 추가
+        hashed_password=hashed_password
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
-# 4. 이메일 인증 처리
 def verify_user_email(db: Session, email: str):
-    user = db.query(User).filter(User.email == email).first()
+    user = get_user_by_email(db, email)
     if user:
         user.is_verified = True
         db.commit()
