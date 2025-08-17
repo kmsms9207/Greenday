@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import models
 import database
-from routers import auth
+from routers import auth, plants 
 
 # 수정: database.engine을 직접 사용하도록 변경
 models.Base.metadata.create_all(bind=database.engine)
@@ -13,7 +13,9 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(plants.router)
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Green Day API Server"}
+
