@@ -11,40 +11,30 @@ from core.security import get_password_hash  # werkzeug 대신 passlib 사용
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
-
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
 
-
 def create_user(db: Session, user: schemas.UserCreate):
-    """
-    User 생성. 비밀번호는 passlib 기반 해시 사용.
-    """
     hashed_password = get_password_hash(user.password)
     db_user = models.User(
         email=user.email,
         username=user.username,
-        name=user.name,  # name 필드가 User 모델에 존재해야 합니다.
-        password=hashed_password,  # 모델 컬럼명이 password 또는 hashed_password인지 확인
-        # is_verified 기본값은 모델의 default/TIMESTAMP로 처리되는 경우 생략 가능
+        name=user.name,
+        # 수정: password -> hashed_password
+        hashed_password=hashed_password
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
-
 def verify_user_email(db: Session, email: str):
-    """
-    이메일 인증 처리: 해당 사용자의 is_verified를 True로 변경.
-    """
     user = get_user_by_email(db, email)
     if user:
         user.is_verified = True
         db.commit()
         db.refresh(user)
     return user
-
 
 # =========================
 # Plant CRUD
