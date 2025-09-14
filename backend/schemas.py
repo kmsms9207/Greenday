@@ -46,6 +46,15 @@ class Plant(PlantBase):
     owner_id: int
     created_at: datetime
 
-    # SQLAlchemy 모델 객체를 Pydantic 모델로 변환할 수 있게 해줌
-    class Config:
+ # SQLAlchemy 모델 객체를 Pydantic 모델로 변환할 수 있게 해줌
+class Config:
         from_attributes = True
+
+ # 비밀번호 재설정 이메일 요청 
+class ForgotPasswordRequest(BaseModel):
+            email: EmailStr
+
+# 비밀번호 재설정 요청 토큰 검증 및 새 비밀번호 설정
+class ResetPasswordRequest(BaseModel):
+            token: str
+            new_password: str

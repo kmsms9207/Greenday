@@ -129,3 +129,16 @@ def delete_plant(db: Session, plant_id: int) -> bool:
     db.delete(plant_obj)
     db.commit()
     return True
+
+
+def update_user_password(db: Session, email: str, new_password: str):
+            """
+            사용자의 비밀번호를 새로운 해시값으로 업데이트합니다.
+            """
+            user = get_user_by_email(db, email=email)
+            if user:
+                hashed_password = get_password_hash(new_password)
+                user.hashed_password = hashed_password
+                db.commit()
+                db.refresh(user)
+            return user

@@ -107,3 +107,55 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
     - **사용법**: /docs 페이지 우측 상단의 'Authorize' 버튼을 통해 로그인 후 테스트할 수 있습니다.
     """
     return current_user
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(request: schemas.ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(database.get_db)):
+    """
+    ### 비밀번호 재설정 이메일 발송
+    - **설명**: 사용자가 입력한 이메일로 비밀번호를 재설정할 수 있는 링크를 보냅니다.
+    """
+    user = crud.get_user_by_email(db, email=request.email)
+    # 가입되지 않은 이메일이라도, 보안을 위해 성공 메시지를 보냅니다.
+    if user:
+        # 토큰을 생성하고 이메일을 백그라운드에서 보냅니다.
+        token = security.create_verification_token(email=user.email)
+        background_tasks.add_task(send_password_reset_email, user.email, token)
+    
+    return {"message": "비밀번호 재설정 이메일을 발송했습니다. 메일함을 확인해주세요."}
+
+async def send_password_reset_email(email: str, token: str):
+    html = f"""
+    <p>안녕하세요! Green Day 비밀번호 재설정 요청을 받았습니다.</p>
+    <p>아래 버튼을 클릭하여 비밀번호를 다시 설정해주세요.</p>
+    <a href="http://localhost:3000/reset-password?token={token}" 
+       style="display:inline-block; padding:10px 20px; color:white; background-color:#28a745; text-decoration:none; border-radius:5px;">
+       비밀번호 재설정하기
+    </a>
+    """
+    message = MessageSchema(
+        subject="[Green Day] 비밀번호 재설정 안내",
+        recipients=[email],
+        body=html,
+        subtype="html"
+    )
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(request: schemas.ResetPasswordRequest, db: Session = Depends(database.get_db)):
+    """
+    ### 새 비밀번호로 재설정
+    - **설명**: 이메일로 받은 토큰과 새 비밀번호로 최종 재설정을 완료합니다.
+    """
+    # 1. 토큰을 검증하여 이메일을 알아냅니다.
+    email = security.verify_token(request.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="유효하지 않거나 만료된 토큰입니다.")
+    
+    # 2. DB 담당자가 만든 crud 함수를 호출하여 DB의 비밀번호를 업데이트합니다.
+    user = crud.update_user_password(db, email=email, new_password=request.new_password)
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    return {"message": "비밀번호가 성공적으로 재설정되었습니다."}
+
