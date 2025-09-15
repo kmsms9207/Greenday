@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'login.dart'; // 로그인 화면 import
+import 'login.dart'; // 로그인 화면을 가져옵니다.
 
 // 앱의 유일한 시작점
 void main() {
@@ -14,7 +14,20 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF486B48)),
+        useMaterial3: true,
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Color(0xFF486B48), width: 2),
+          ),
+          labelStyle: TextStyle(color: Colors.black),
+        ),
+      ),
       // 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 지정
       home: const LoginScreen(),
     );
