@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
-// 1. 회원가입 화면(signup.dart)을 가져옵니다.
 import 'signup.dart';
-
-// TODO: 메인 화면 등 필요한 페이지를 import 하세요.
-// import 'main_screen.dart';
+import 'my_plant_screen.dart'; // 1. '내 식물' 화면을 import 합니다.
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -32,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
           'password': _passwordController.text,
         },
       );
-
       if (!mounted) return;
 
       if (response.statusCode == 200) {
@@ -40,10 +34,14 @@ class _LoginScreenState extends State<LoginScreen> {
         final accessToken = responseBody['access_token'];
         print("로그인 성공! 토큰: $accessToken");
 
-        ScaffoldMessenger.of(
+        // TODO: 여기서 발급받은 accessToken을 안전한 곳에 저장해야 합니다.
+
+        // 2. 로그인 성공 후, MyPlantScreen으로 이동하도록 수정합니다.
+        // pushReplacement를 사용하면 뒤로가기 버튼으로 로그인 화면에 다시 올 수 없습니다.
+        Navigator.pushReplacement(
           context,
-        ).showSnackBar(const SnackBar(content: Text("로그인에 성공했습니다!")));
-        // TODO: 토큰 저장 및 메인 화면으로 이동
+          MaterialPageRoute(builder: (context) => const MyPlantScreen()),
+        );
       } else {
         ScaffoldMessenger.of(
           context,
@@ -149,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   TextButton(
                     onPressed: () {
-                      /* TODO: 아이디/비밀번호 찾기 화면으로 이동 */
+                      // TODO: 비밀번호 찾기 화면으로 이동
                     },
                     child: const Text(
                       "비밀번호 찾기",
@@ -158,7 +156,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const Text("|", style: TextStyle(color: Colors.grey)),
                   TextButton(
-                    // 2. '회원가입' 버튼을 누르면 SignUpScreen으로 이동하도록 수정
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -174,6 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
+              /*
               const Spacer(flex: 1),
               const Row(
                 children: [
@@ -204,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     /* TODO: 구글 로그인 */
                   }),
                 ],
-              ),
+              ), */
               const Spacer(flex: 2),
             ],
           ),
