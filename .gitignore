@@ -4,10 +4,21 @@ backend/__pycache__/
 backend/*.pyc
 backend/.env
 
+# IDE/에디터 설정
+backend/.vscode/
+backend/.idea/
+
+# 로그 파일
+backend/*.log
+
+# 데이터베이스 파일 (sqlite 같은 경우)
+backend/*.db
+
 # Frontend (나중에 추가될 것)
 frontend/node_modules/
 frontend/.DS_Store
 frontend/build/
+frontend/
 
 # IDE 설정 파일
 .idea/

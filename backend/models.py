@@ -38,23 +38,3 @@ class Plant(Base):
 
     # 역방향 관계 (Plant → User)
     owner = relationship("User", back_populates="plants")
-
-
-# --- [추가] 추천용 마스터 식물 데이터 테이블 ---
-# 이 테이블에는 우리가 사용자에게 추천해줄 모든 식물의 정보가 미리 저장됩니다.
-class PlantMaster(Base):
-    __tablename__ = "plants_master"
-    id = Column(Integer, primary_key=True)
-    name_ko = Column(String(150), nullable=False)
-    name_en = Column(String(150))
-    species = Column(String(190), nullable=False, unique=True)
-    family = Column(String(120))
-    image_url = Column(String(1024))
-    description = Column(Text)
-    difficulty = Column(Enum('상', '중', '하', name='difficulty_enum'), nullable=False)
-    light_requirement = Column(Enum('음지', '반음지', '양지', name='lightreq_enum'), nullable=False)
-    water_cycle_text = Column(String(50))
-    water_interval_days = Column(Integer)
-    pet_safe = Column(Boolean)
-    tags = Column(JSON)
-    created_at = Column(TIMESTAMP, server_default=func.now())

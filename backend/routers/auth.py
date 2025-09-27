@@ -158,4 +158,3 @@ def reset_password(request: schemas.ResetPasswordRequest, db: Session = Depends(
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
     return {"message": "비밀번호가 성공적으로 재설정되었습니다."}
-
