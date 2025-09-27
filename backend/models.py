@@ -1,5 +1,8 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, TIMESTAMP, ForeignKey, func
+from sqlalchemy import (
+    Column, Integer, String, Boolean, TIMESTAMP, ForeignKey, func,
+    Text, Enum, JSON
+)
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -38,3 +41,23 @@ class Plant(Base):
 
     # 역방향 관계 (Plant → User)
     owner = relationship("User", back_populates="plants")
+
+    # --- [추가] 추천용 마스터 식물 데이터 테이블 ---
+# 이 테이블에는 우리가 사용자에게 추천해줄 모든 식물의 정보가 미리 저장됩니다.
+class PlantMaster(Base):
+    __tablename__ = "plants_master"
+
+    id = Column(Integer, primary_key=True)
+    name_ko = Column(String(150), nullable=False)
+    name_en = Column(String(150), nullable=True)
+    species = Column(String(190), nullable=False, unique=True)
+    family = Column(String(120), nullable=True)
+    image_url = Column(String(1024), nullable=True)
+    description = Column(Text, nullable=True)
+    difficulty = Column(Enum('상', '중', '하', name='difficulty_enum'), nullable=False, default='중')
+    light_requirement = Column(Enum('음지', '반음지', '양지', name='lightreq_enum'), nullable=False, default='반음지')
+    water_cycle_text = Column(String(50), nullable=True)
+    water_interval_days = Column(Integer, nullable=True)
+    pet_safe = Column(Boolean, nullable=True)
+    tags = Column(JSON, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now())

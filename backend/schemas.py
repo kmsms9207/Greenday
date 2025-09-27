@@ -1,5 +1,8 @@
-from pydantic import BaseModel, EmailStr
-from datetime import datetime 
+from pydantic import BaseModel, EmailStr, ConfigDict
+from datetime import datetime
+from typing import Optional, List
+
+# --- User Schemas ---
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -7,54 +10,63 @@ class UserCreate(BaseModel):
     name: str
     password: str
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class Token(BaseModel):
-    accessToken: str
-
-class EmailVerification(BaseModel):
-    token: str
-
-# --- 내 정보 조회를 위한 응답 모델 추가 ---
 class UserInfo(BaseModel):
     id: int
     email: EmailStr
     username: str
     name: str
+    model_config = ConfigDict(from_attributes=True)
 
-    # 이 설정은 SQLAlchemy 모델 객체를 Pydantic 모델로 변환할 수 있게 해줍니다.
-    class Config:
-        from_attributes = True
+class Token(BaseModel):
+    access_token: str
+    token_type: str
 
-# --- Plant 관련 스키마 ---
+class EmailVerification(BaseModel):
+    token: str
 
-# Plant의 기본 데이터 형식
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+# --- Plant Schemas ---
+
 class PlantBase(BaseModel):
     name: str
     species: str
-    image_url: str | None = None # 선택적 필드로 변경
+    image_url: Optional[str] = None
 
-# 새 식물을 등록할 때 받는 데이터 형식
 class PlantCreate(PlantBase):
     pass
 
-# DB에서 식물 정보를 읽어올 때 사용하는 기본 형식
 class Plant(PlantBase):
     id: int
     owner_id: int
     created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
 
- # SQLAlchemy 모델 객체를 Pydantic 모델로 변환할 수 있게 해줌
-class Config:
-        from_attributes = True
+# --- Recommendation Schemas ---
 
- # 비밀번호 재설정 이메일 요청 
-class ForgotPasswordRequest(BaseModel):
-            email: EmailStr
+# 추천 요청 시 프론트엔드로부터 받을 설문 데이터 양식
+class SurveyRecommendRequest(BaseModel):
+    place: str
+    sunlight: str
+    experience: str
+    has_pets: bool = False
+    desired_difficulty: Optional[str] = None
+    limit: int = 10
 
-# 비밀번호 재설정 요청 토큰 검증 및 새 비밀번호 설정
-class ResetPasswordRequest(BaseModel):
-            token: str
-            new_password: str
+# 추천 결과로 프론트엔드에 보내줄 개별 식물 데이터 양식
+class RecommendItem(BaseModel):
+    id: int
+    name_ko: str
+    image_url: Optional[str] = None
+    difficulty: str
+    light_requirement: str
+    # 추천 점수와 이유를 함께 보내 UX를 개선합니다.
+    score: float
+    reasons: List[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
