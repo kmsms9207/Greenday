@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'login.dart'; // 로그인 화면을 가져옵니다.
+import 'login.dart'; // 1. 로그인 화면을 import 합니다.
 
 // 앱의 유일한 시작점
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MainApp());
 }
 
@@ -28,7 +29,7 @@ class MainApp extends StatelessWidget {
           labelStyle: TextStyle(color: Colors.black),
         ),
       ),
-      // 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 지정
+      // 2. 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 정확히 지정합니다.
       home: const LoginScreen(),
     );
   }

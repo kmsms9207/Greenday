@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
+import 'verify_email_screen.dart'; // 이메일 인증 화면 import
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -76,7 +77,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   // 회원가입 API를 호출하는 함수
   Future<void> attemptSignUp() async {
     const String apiUrl =
-        "https://1701b9791fc0.ngrok-free.app/auth/signup"; // TODO: 실제 API 주소로 변경
+        "https://d23c6db83f6a.ngrok-free.app/auth/signup"; // 최신 URL로 가정
     if (_passwordController.text != _passwordCheckController.text) {
       ScaffoldMessenger.of(
         context,
@@ -86,27 +87,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final response = await http.post(
         Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
           'email': _emailController.text,
+          'username': _emailController.text, // username 필드 추가
           'password': _passwordController.text,
           'name': _nameController.text,
           'gender': selectedGender,
           'birth_year': selectedYear,
           'birth_month': selectedMonth,
           'birth_day': selectedDay,
-        },
+        }),
       );
       if (!mounted) return;
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print("회원가입 성공!");
-        // TODO: 회원가입 성공 후 로그인 페이지로 이동
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
+        print("회원가입 요청 성공! 인증 메일 발송됨.");
+        Navigator.push(
           context,
-        ).showSnackBar(const SnackBar(content: Text("회원가입에 성공했습니다!")));
+          MaterialPageRoute(
+            builder: (context) =>
+                VerifyEmailScreen(email: _emailController.text),
+          ),
+        );
       } else {
         print("회원가입 실패: ${response.statusCode}");
+        print("실패 상세 원인: ${response.body}");
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("회원가입에 실패했습니다.")));
@@ -116,7 +121,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  // 컨트롤러 메모리 해제
   @override
   void dispose() {
     _emailController.dispose();
@@ -133,6 +137,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         toolbarHeight: 100,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -159,7 +167,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // --- UI 위젯 전체 코드 ---
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(labelText: "이메일"),
@@ -242,7 +249,69 @@ class _SignUpScreenState extends State<SignUpScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // (약관 동의 UI 부분은 생략 없이 모두 포함되어 있습니다)
+                Row(
+                  children: [
+                    Checkbox(
+                      value:
+                          isTermsAccepted &&
+                          isPrivacyAccepted &&
+                          isMarketingAccepted,
+                      onChanged: (value) {
+                        setState(() {
+                          isTermsAccepted = value!;
+                          isPrivacyAccepted = value;
+                          isMarketingAccepted = value;
+                        });
+                      },
+                    ),
+                    const Text("아래 약관에 모두 동의합니다."),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isTermsAccepted,
+                      onChanged: (v) => setState(() => isTermsAccepted = v!),
+                    ),
+                    const Text("[필수] 이용약관 동의"),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => showTerms(context, 'terms.txt', '이용약관'),
+                      child: const Text("자세히"),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isPrivacyAccepted,
+                      onChanged: (v) => setState(() => isPrivacyAccepted = v!),
+                    ),
+                    const Text("[필수] 개인정보 처리방침 동의"),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () =>
+                          showTerms(context, 'privacy.txt', '개인정보 처리방침'),
+                      child: const Text("자세히"),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isMarketingAccepted,
+                      onChanged: (v) =>
+                          setState(() => isMarketingAccepted = v!),
+                    ),
+                    const Text("[선택] 마케팅 정보 수신 동의"),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () =>
+                          showTerms(context, 'marketing.txt', '마케팅 정보 수신 동의'),
+                      child: const Text("자세히"),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 10),

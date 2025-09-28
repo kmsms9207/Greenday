@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'signup.dart';
-import 'my_plant_screen.dart'; // 1. '내 식물' 화면을 import 합니다.
+import 'main_screen.dart'; // 1. my_plant_screen.dart 대신 main_screen.dart를 import 합니다.
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +15,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   Future<void> attemptLogin() async {
-    const String apiUrl = "https://1701b9791fc0.ngrok-free.app/auth/login";
+    const String apiUrl =
+        "https://d23c6db83f6a.ngrok-free.app/auth/login"; // 최신 URL로 가정
 
     try {
       final response = await http.post(
@@ -36,11 +37,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // TODO: 여기서 발급받은 accessToken을 안전한 곳에 저장해야 합니다.
 
-        // 2. 로그인 성공 후, MyPlantScreen으로 이동하도록 수정합니다.
-        // pushReplacement를 사용하면 뒤로가기 버튼으로 로그인 화면에 다시 올 수 없습니다.
+        // 2. 로그인 성공 후, MainScreen으로 이동하도록 코드를 수정합니다.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MyPlantScreen()),
+          MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       } else {
         ScaffoldMessenger.of(
@@ -171,64 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              /*
-              const Spacer(flex: 1),
-              const Row(
-                children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text(
-                      "SNS계정으로 간편 로그인",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                  Expanded(child: Divider()),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildSnsLoginButton('assets/kakao.png', () {
-                    /* TODO: 카카오 로그인 */
-                  }),
-                  const SizedBox(width: 24),
-                  _buildSnsLoginButton('assets/naver.png', () {
-                    /* TODO: 네이버 로그인 */
-                  }),
-                  const SizedBox(width: 24),
-                  _buildSnsLoginButton('assets/google.png', () {
-                    /* TODO: 구글 로그인 */
-                  }),
-                ],
-              ), */
-              const Spacer(flex: 2),
+              const Spacer(flex: 3),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSnsLoginButton(String imagePath, VoidCallback onPressed) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(25),
-      child: Image.asset(
-        imagePath,
-        width: 50,
-        height: 50,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            width: 50,
-            height: 50,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey,
-            ),
-          );
-        },
       ),
     );
   }
