@@ -1,0 +1,28 @@
+^C:\GREENDAY\FRONTEND\BUILD\WINDOWS\X64\CMAKEFILES\9ADED1C808D148D8165F689DF59DD4CF\FLUTTER_WINDOWS.DLL.RULE
+setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E env FLUTTER_ROOT=C:\Users\alstj\flutter\flutter PROJECT_DIR=C:\Greenday\frontend FLUTTER_ROOT=C:\Users\alstj\flutter\flutter FLUTTER_EPHEMERAL_DIR=C:\Greenday\frontend\windows\flutter\ephemeral PROJECT_DIR=C:\Greenday\frontend FLUTTER_TARGET=C:\Greenday\frontend\lib\main.dart DART_DEFINES=RkxVVFRFUl9WRVJTSU9OPTMuMzIuNw==,RkxVVFRFUl9DSEFOTkVMPXN0YWJsZQ==,RkxVVFRFUl9HSVRfVVJMPWh0dHBzOi8vZ2l0aHViLmNvbS9mbHV0dGVyL2ZsdXR0ZXIuZ2l0,RkxVVFRFUl9GUkFNRVdPUktfUkVWSVNJT049ZDdiNTIzYjM1Ng==,RkxVVFRFUl9FTkdJTkVfUkVWSVNJT049MzlkNmQ2ZTY5OQ==,RkxVVFRFUl9EQVJUX1ZFUlNJT049My44LjE= DART_OBFUSCATION=false TRACK_WIDGET_CREATION=true TREE_SHAKE_ICONS=false PACKAGE_CONFIG=C:\Greenday\frontend\.dart_tool\package_config.json C:/Users/alstj/flutter/flutter/packages/flutter_tools/bin/tool_backend.bat windows-x64 Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\GREENDAY\FRONTEND\BUILD\WINDOWS\X64\CMAKEFILES\FAE490095498A84F7270F04001821F9C\FLUTTER_ASSEMBLE.RULE
+setlocal
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^C:\GREENDAY\FRONTEND\WINDOWS\FLUTTER\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SC:/Greenday/frontend/windows -BC:/Greenday/frontend/build/windows/x64 --check-stamp-file C:/Greenday/frontend/build/windows/x64/flutter/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
