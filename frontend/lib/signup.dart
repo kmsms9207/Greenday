@@ -42,9 +42,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       selectedDay != null &&
       isTermsAccepted &&
       isPrivacyAccepted;
-
-  void _onFieldChanged(_) => setState(() {}); // 회원가입 버튼 색상 실시간 반영
-
+  
+  // 회원가입 버튼 색상 실시간 반영
   // initState에서 컨트롤러에 리스너를 추가하여 입력 변경 감지
   @override
   void initState() {

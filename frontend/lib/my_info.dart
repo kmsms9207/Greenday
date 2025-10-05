@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'main_screen.dart';
 
-class PlantInfoScreen extends StatelessWidget {
-  const PlantInfoScreen({super.key});
+class MyInfoScreen extends StatelessWidget {
+  const MyInfoScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,6 +12,15 @@ class PlantInfoScreen extends StatelessWidget {
         backgroundColor: Colors.white, // AppBar 배경
         toolbarHeight: 50, // AppBar 높이
         centerTitle: true, // 중앙 정렬
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainScreen()), // 이전 화면으로 돌아가기
+            );
+          },
+        ),
         title: const Text.rich(
           TextSpan(
             children: [

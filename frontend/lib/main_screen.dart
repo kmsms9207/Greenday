@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'my_plant_screen.dart'; // 1. '내 식물' 화면을 import 합니다.
+import 'my_info.dart'; // 3. '내 정보' 화면
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,13 +17,20 @@ class _MainScreenState extends State<MainScreen> {
     HomePage(), // 0번 인덱스: 커뮤니티
     Text('성장 일지 페이지'), // 1번 인덱스: 성장 일지
     MyPlantScreen(), // 2번 인덱스: '식물 정보'를 MyPlantScreen으로 변경
-    Text('내 정보 페이지'), // 3번 인덱스: 내 정보
+    MyInfoScreen(), // 3번 인덱스: 내 정보
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 3) { // 3번 탭: 내 정보
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const MyInfoScreen()),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
