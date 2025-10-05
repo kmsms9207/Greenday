@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import models
 import database
-from routers import auth, plants, recommendations
+from routers import auth, plants, recommendations, identify
 
 # 수정: database.engine을 직접 사용하도록 변경
 models.Base.metadata.create_all(bind=database.engine)
@@ -15,6 +15,7 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(plants.router)
 app.include_router(recommendations.router)
+app.include_router(identify.router)
 
 @app.get("/")
 def read_root():

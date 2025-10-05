@@ -13,5 +13,6 @@ class Settings(BaseSettings):
     MAIL_STARTTLS: bool
     MAIL_SSL_TLS: bool
     class Config:
-        env_file = ".env"
+        env_file = ".env",
+        extra="ignore"
 settings = Settings()
