@@ -1,12 +1,5 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: PlantInfoScreen(),
-  ));
-}
-
 class PlantInfoScreen extends StatelessWidget {
   const PlantInfoScreen({super.key});
 

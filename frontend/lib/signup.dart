@@ -6,6 +6,7 @@ import 'verify_email_screen.dart'; // 이메일 인증 화면 import
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
+
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
@@ -16,17 +17,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   final _passwordCheckController = TextEditingController();
   final _nameController = TextEditingController();
+
   String selectedGender = "남자";
   String? selectedYear, selectedMonth, selectedDay;
+
   List<String> years = List.generate(
     100,
     (index) => (DateTime.now().year - index).toString(),
   );
   List<String> months = List.generate(12, (index) => (index + 1).toString());
   List<String> days = List.generate(31, (index) => (index + 1).toString());
-  bool isTermsAccepted = false,
-      isPrivacyAccepted = false,
-      isMarketingAccepted = false;
+  bool isTermsAccepted = false,     // [필수] 이용약관 동의
+      isPrivacyAccepted = false,    // [필수] 개인정보 처리방침 동의
+      isMarketingAccepted = false;  // [선택] 마케팅 정보 수신 동의
 
   // 모든 필수 필드가 채워졌는지 확인하는 변수
   bool get isFormComplete =>
@@ -39,6 +42,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       selectedDay != null &&
       isTermsAccepted &&
       isPrivacyAccepted;
+
+  void _onFieldChanged(_) => setState(() {}); // 회원가입 버튼 색상 실시간 반영
 
   // initState에서 컨트롤러에 리스너를 추가하여 입력 변경 감지
   @override
@@ -338,7 +343,48 @@ class _SignUpScreenState extends State<SignUpScreen> {
         width: double.infinity,
         height: 60,
         child: ElevatedButton(
-          onPressed: isFormComplete ? attemptSignUp : null,
+          onPressed: () {
+            // 필수 입력 체크
+            if (_emailController.text.isEmpty ||
+                _passwordController.text.isEmpty ||
+                _passwordCheckController.text.isEmpty ||
+                _nameController.text.isEmpty ||
+                selectedYear == null ||
+                selectedMonth == null ||
+                selectedDay == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("모든 필수 항목을 입력해주세요."),
+                  duration: const Duration(seconds: 1)
+                ),
+              );
+              return;
+            }
+
+            // 비밀번호 일치 확인
+            if (_passwordController.text != _passwordCheckController.text) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("비밀번호가 일치하지 않습니다."),
+                  duration: const Duration(seconds: 1)
+                ),
+              );
+              return;
+            }
+
+            // 필수 약관 체크
+            if (!isTermsAccepted || !isPrivacyAccepted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("필수 약관에 모두 동의해야 회원가입이 가능합니다."),
+                  duration: const Duration(seconds: 1)
+                ),
+              );
+              return;
+            }
+            attemptSignUp();
+          },
+
           style: ElevatedButton.styleFrom(
             backgroundColor: isFormComplete
                 ? const Color(0xFF486B48)
