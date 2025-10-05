@@ -2,38 +2,23 @@
 # -*- coding: utf-8 -*-
 """
 importer.py
-- HTTP: httpx
-- DB 드라이버: mysql-connector-python (SQLAlchemy URL: mysql+mysqlconnector://)
-- JSON 컬럼: SQLAlchemy JSON
-- 실행은 동기(일회성 스크립트)
-
+- 일회성 데이터 파이프라인: Wikidata -> (옵션)Perenual -> (옵션)CLOVA X -> DB(PlantMaster UPSERT)
+- 견고화 패치:
+  * Wikidata: 가벼운 SPARQL + EntityData(REST)로 ko 라벨/이미지 보강
+  * HTTP: httpx 타임아웃/재시도/백오프
+  * Perenual: 429 시 재시도/백오프
 사용법:
-  python importer.py --limit 40 --dry-run
+  python importer.py --limit 10 --dry-run
   python importer.py --limit 40
-
-필수/선택 환경변수(.env):
-  DB_URL=mysql+mysqlconnector://user:pass@host:3306/greenday_db
-  # 없으면 DATABASE_URL 사용. mysqlconnector & charset 미지정 시 자동으로 ?charset=utf8mb4 부여
-
-  WIKIDATA_SPARQL_ENDPOINT=https://query.wikidata.org/sparql (기본값)
-  PERENUAL_API_BASE=https://perenual.com/api (기본값)
-  PERENUAL_API_KEY=... (없으면 이 단계 스킵)
-
-  # CLOVA v3(Bearer) 우선, 없으면 v1(API Gateway)
-  CLOVA_API_URL=...  # 예) https://clovastudio.stream.ntruss.com/testapp/v3/chat-completions/HCX-005
-  CLOVA_BEARER=nv-...  # 테스트앱이면 보통 이 값만 존재
-  # (v1인 경우)
-  CLOVA_API_KEY_ID=
-  CLOVA_API_KEY=
-  CLOVA_MODEL=HCX-003 or HCX-005
-  CLOVA_REQUEST_ID=plantmaster-importer
 """
+
 import os
 import json
 import time
 import argparse
 import logging
-from typing import Dict, Any, List, Optional
+import urllib.parse
+from typing import Dict, Any, List, Optional, Tuple
 
 import httpx
 from dotenv import load_dotenv
@@ -59,11 +44,11 @@ CLOVA_MODEL = os.getenv("CLOVA_MODEL", "HCX-003")
 
 # DB_URL 우선, 없으면 DATABASE_URL 사용
 DATABASE_URL = os.getenv("DB_URL") or os.getenv("DATABASE_URL", "")
-# mysqlconnector & charset 미지정 시 자동으로 추가
+# mysqlconnector & charset 미지정 시 자동 추가
 if DATABASE_URL and "mysql+mysqlconnector://" in DATABASE_URL and "charset=" not in DATABASE_URL:
     DATABASE_URL += ("&" if "?" in DATABASE_URL else "?") + "charset=utf8mb4"
 
-USER_AGENT = "PlantMasterImporter/1.0 (contact: team@greenday.local)"
+USER_AGENT = "PlantMasterImporter/1.1 (contact: team@greenday.local)"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("importer")
@@ -92,13 +77,43 @@ class PlantMaster(Base):
     pet_safe: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     tags: Mapped[Optional[dict]] = mapped_column(SAJSON, nullable=True)  # MySQL JSON
 
-# ------------------------- HTTP 유틸 (httpx) -------------------------
-def http_get_json(url: str, params: Dict[str, Any] = None, headers: Dict[str, str] = None) -> Dict[str, Any]:
-    headers = {**(headers or {}), "User-Agent": USER_AGENT}
-    with httpx.Client(timeout=30.0, headers=headers) as client:
-        r = client.get(url, params=params or {})
-        r.raise_for_status()
-        return r.json()
+# ------------------------- HTTP 유틸 (httpx, 재시도/백오프) -------------------------
+def http_get_json(
+    url: str,
+    params: Dict[str, Any] = None,
+    headers: Dict[str, str] = None,
+    timeout: float = 90.0,
+    retries: int = 5
+) -> Dict[str, Any]:
+    """
+    GET JSON with retry/backoff.
+    - Wikidata 429/5xx/ReadTimeout 시 지수 백오프 재시도
+    """
+    hdrs = {**(headers or {}), "User-Agent": USER_AGENT, "Accept-Encoding": "gzip"}
+    params = dict(params or {})
+    if "query.wikidata.org/sparql" in url and "timeout" not in params:
+        params["timeout"] = "60000"  # 60s 쿼리 타임리밋
+
+    backoff = 1.2
+    last = None
+    for i in range(retries):
+        try:
+            with httpx.Client(timeout=httpx.Timeout(timeout, connect=10, read=timeout), headers=hdrs) as c:
+                r = c.get(url, params=params)
+                r.raise_for_status()
+                return r.json()
+        except httpx.HTTPStatusError as e:
+            code = e.response.status_code
+            if code in (429, 502, 503, 504) and i < retries - 1:
+                time.sleep(backoff * (i + 1))
+                continue
+            raise
+        except (httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+            last = e
+            if i < retries - 1:
+                time.sleep(backoff * (i + 1))
+                continue
+            raise last
 
 def http_post_json(url: str, json_body: Dict[str, Any], headers: Dict[str, str]) -> Dict[str, Any]:
     headers = {**(headers or {}), "User-Agent": USER_AGENT, "Content-Type": "application/json; charset=utf-8"}
@@ -107,44 +122,122 @@ def http_post_json(url: str, json_body: Dict[str, Any], headers: Dict[str, str])
         r.raise_for_status()
         return r.json()
 
-# ------------------------- Wikidata -------------------------
+# ------------------------- Wikidata: REST 보강 -------------------------
+def wikidata_entity(qid: str) -> Optional[Dict[str, Any]]:
+    """Wikidata REST(Special:EntityData)로 ko 라벨/P18/학명(P225) 가져오기"""
+    try:
+        data = http_get_json(f"https://www.wikidata.org/wiki/Special:EntityData/{qid}.json", timeout=30.0, retries=3)
+        ent = next(iter(data.get("entities", {}).values()), None)
+        if not ent:
+            return None
+        labels = ent.get("labels", {})
+        name_ko = (labels.get("ko") or {}).get("value")
+        claims = ent.get("claims", {})
+        # P225: scientific name
+        sci = None
+        if "P225" in claims and claims["P225"]:
+            sci = claims["P225"][0]["mainsnak"]["datavalue"]["value"]
+        # P18: image filename -> commons URL
+        img_url = None
+        if "P18" in claims and claims["P18"]:
+            filename = claims["P18"][0]["mainsnak"]["datavalue"]["value"]
+            img_url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(filename) + "?width=640"
+        return {"name_ko": name_ko, "species": sci, "image_url": img_url}
+    except Exception:
+        return None
+    
+def _fallback_plants(limit: int) -> List[Dict[str, Any]]:
+    """Wikidata/네트워크가 계속 실패할 때 최소 동작을 보장하는 로컬 시드"""
+    seeds = [
+        # (species, ko_hint)
+        ("Monstera deliciosa", "몬스테라"),
+        ("Ficus elastica", "떡갈고무나무"),
+        ("Epipremnum aureum", "스킨답서스"),
+        ("Dracaena trifasciata", "산세베리아"),
+        ("Spathiphyllum wallisii", "스파티필름"),
+        ("Zamioculcas zamiifolia", "금전수"),
+        ("Pilea peperomioides", "중국돈나무"),
+        ("Chlorophytum comosum", "접란"),
+        ("Hedera helix", "아이비"),
+        ("Calathea orbifolia", "칼라데아 오르비폴리아"),
+    ]
+    out = []
+    for species, ko in seeds[: max(1, limit)]:
+        out.append({"name_ko": ko, "species": species, "image_url": None})
+    return out
+
+# ------------------------- Wikidata: 경량 SPARQL + REST 보강 -------------------------
 def fetch_plants_from_wikidata(limit: int = 40) -> List[Dict[str, Any]]:
     """
-    학명(P225), 한국어 라벨(itemLabel), 이미지(P18)를 수집.
-    한국어 라벨이 없는 경우 제외.
+    1) 초경량 SPARQL: QID + 학명만 (라벨/이미지 조인 없음)
+    2) 각 QID에 대해 REST(EntityData)로 ko 라벨/P18 보강
+    3) SPARQL/REST가 전부 실패하면 로컬 시드(fallback) 반환
     """
+    # 비용 높은 rdfs:label 조인을 제거한 초경량 쿼리
     query = f"""
-    SELECT ?item ?itemLabel ?taxonName ?image WHERE {{
-      ?item wdt:P31 wd:Q16521 .           # taxon
-      ?item wdt:P225 ?taxonName .         # scientific name
-      ?item wdt:P18 ?image .              # image
-      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "ko,en". }}
-      FILTER(LANG(?itemLabel) = "ko")
+    SELECT ?item ?taxonName WHERE {{
+      ?item wdt:P31 wd:Q16521 .      # taxon
+      ?item wdt:P105 wd:Q7432 .      # rank = species
+      ?item wdt:P171* wd:Q756 .      # under Plantae
+      ?item wdt:P225 ?taxonName .    # scientific name
     }}
-    LIMIT {int(limit * 2)}
+    LIMIT {int(max(10, limit * 3))}
     """
+
     params = {"query": query, "format": "json"}
     headers = {"Accept": "application/sparql-results+json"}
-    data = http_get_json(WIKIDATA_SPARQL_ENDPOINT, params=params, headers=headers)
 
-    results = []
-    for b in data.get("results", {}).get("bindings", []):
-        ko_label = b.get("itemLabel", {}).get("value")
-        sci = b.get("taxonName", {}).get("value")
-        img = b.get("image", {}).get("value")
-        if not ko_label or not sci:
+    qid_sci: List[Tuple[str, str]] = []
+    try:
+        data = http_get_json(
+            WIKIDATA_SPARQL_ENDPOINT,
+            params=params,
+            headers=headers,
+            timeout=90.0,
+            retries=5,
+        )
+        for b in data.get("results", {}).get("bindings", []):
+            item_uri = b.get("item", {}).get("value")
+            sci = b.get("taxonName", {}).get("value")
+            if not item_uri or not sci:
+                continue
+            qid = item_uri.rsplit("/", 1)[-1]  # http://www.wikidata.org/entity/QXXXX
+            qid_sci.append((qid, sci))
+    except Exception as e:
+        logger.warning("Wikidata SPARQL failed: %s", e)
+
+    # 아무 것도 못 가져온 경우 → 로컬 시드로 즉시 반환
+    if not qid_sci:
+        logger.warning("Using local fallback plant list due to Wikidata failure.")
+        return _fallback_plants(limit)
+
+    # 중복 제거 + 상위 limit
+    seen = set()
+    picked: List[Tuple[str, str]] = []
+    for qid, sci in qid_sci:
+        if sci in seen:
             continue
-        results.append({
-            "name_ko": ko_label,
-            "species": sci,
-            "image_url": img,
-        })
+        seen.add(sci)
+        picked.append((qid, sci))
+        if len(picked) >= limit:
+            break
 
-    # 중복 제거 (species 기준), 상위 limit
-    uniq = {}
-    for r in results:
-        uniq.setdefault(r["species"], r)
-    return list(uniq.values())[:limit]
+    # EntityData(REST)로 ko 라벨/이미지 보강
+    results: List[Dict[str, Any]] = []
+    for qid, sci in picked:
+        meta = wikidata_entity(qid) or {}
+        name_ko = meta.get("name_ko") or sci  # ko 라벨이 없으면 학명으로 대체
+        image_url = meta.get("image_url")
+        results.append({"name_ko": name_ko, "species": sci, "image_url": image_url})
+        time.sleep(0.2)  # REST 호출 간격
+
+    # 혹시 REST도 전부 실패해버렸다면 마지막 안전망
+    if not results:
+        logger.warning("Wikidata REST fallback also empty. Using local seeds.")
+        return _fallback_plants(limit)
+
+    return results
+
 
 # ------------------------- Perenual -------------------------
 def perenual_search_by_species(scientific_name: str) -> Optional[Dict[str, Any]]:
@@ -152,8 +245,8 @@ def perenual_search_by_species(scientific_name: str) -> Optional[Dict[str, Any]]
         return None
     try:
         q_params = {"key": PERENUAL_API_KEY, "q": scientific_name}
-        data = http_get_json(f"{PERENUAL_API_BASE}/species-list", params=q_params)
-        d = data.get("data") or data  # 플랜/엔드포인트에 따라 다름
+        data = http_get_json(f"{PERENUAL_API_BASE}/species-list", params=q_params, timeout=30.0, retries=3)
+        d = data.get("data") or data  # 플랜/엔드포인트에 따라 응답 포맷 상이
         if isinstance(d, list) and d:
             return d[0]
         return None
@@ -161,15 +254,23 @@ def perenual_search_by_species(scientific_name: str) -> Optional[Dict[str, Any]]
         logger.warning("Perenual search error (%s): %s", scientific_name, e)
         return None
 
-def perenual_detail(species_id: int) -> Optional[Dict[str, Any]]:
+def perenual_detail(species_id: int, max_retries: int = 3) -> Optional[Dict[str, Any]]:
     if not PERENUAL_API_KEY:
         return None
-    try:
-        q_params = {"key": PERENUAL_API_KEY}
-        return http_get_json(f"{PERENUAL_API_BASE}/species/details/{species_id}", params=q_params)
-    except Exception as e:
-        logger.warning("Perenual detail error (%s): %s", species_id, e)
-        return None
+    backoff = 1.2
+    for attempt in range(max_retries):
+        try:
+            q_params = {"key": PERENUAL_API_KEY}
+            return http_get_json(f"{PERENUAL_API_BASE}/species/details/{species_id}", params=q_params, timeout=30.0, retries=1)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                time.sleep(backoff * (attempt + 1))  # 1.2s, 2.4s, ...
+                continue
+            logger.warning("Perenual detail error (%s): %s", species_id, e)
+            return None
+        except Exception as e:
+            logger.warning("Perenual detail error (%s): %s", species_id, e)
+            return None
 
 # ------------------------- 매핑 -------------------------
 def map_difficulty(src: Optional[str]) -> str:
@@ -251,11 +352,11 @@ def map_pet_safe(poisonous_to_pets) -> Optional[bool]:
         pass
     return None
 
-# ------------------------- LLM(Clova/OpenAI) -------------------------
+# ------------------------- LLM(Clova) -------------------------
 def generate_one_liner_ko(data: Dict[str, Any]) -> str:
     """
     한 줄 설명 생성:
-      1) 우선 CLOVA v3(Bearer) 또는 v1(APIGW) 자동 지원
+      1) CLOVA v3(Bearer) 또는 v1(APIGW) 자동 지원
       2) 둘 다 없으면 템플릿 문구 반환
     """
     diff = data.get("difficulty") or "중"
@@ -267,7 +368,7 @@ def generate_one_liner_ko(data: Dict[str, Any]) -> str:
         return tmpl
 
     try:
-        # 1) 인증 방식 결정 (Bearer 우선)
+        # 인증 방식 결정 (Bearer 우선)
         use_bearer = bool(CLOVA_BEARER) or (CLOVA_API_KEY and CLOVA_API_KEY.startswith("nv-") and not CLOVA_API_KEY_ID)
         bearer = CLOVA_BEARER or (CLOVA_API_KEY if use_bearer else "")
 
@@ -285,7 +386,7 @@ def generate_one_liner_ko(data: Dict[str, Any]) -> str:
                 "Content-Type": "application/json; charset=utf-8",
             }
 
-        # 2) v3 여부 (URL에 /v3/chat-completions)
+        # v3 여부 (URL에 /v3/chat-completions)
         is_v3 = "/v3/chat-completions" in (CLOVA_API_URL or "")
 
         prompt = (
@@ -298,14 +399,8 @@ def generate_one_liner_ko(data: Dict[str, Any]) -> str:
             {"role": "user", "content": prompt},
         ]
 
-        body = {
-            "messages": messages,
-            "temperature": 0.3,
-            "topP": 0.9,
-            "maxTokens": 80,
-        }
-        # v1(apigw)만 body에 모델 필요, v3는 URL 경로에 모델 포함
-        if not is_v3:
+        body = {"messages": messages, "temperature": 0.3, "topP": 0.9, "maxTokens": 80}
+        if not is_v3:  # v1(apigw)만 body에 모델 필요, v3는 URL에 모델 포함
             body["model"] = CLOVA_MODEL
 
         res = http_post_json(CLOVA_API_URL, body, headers=headers)
@@ -361,7 +456,7 @@ def run(limit: int = 40, dry_run: bool = False) -> None:
         raise RuntimeError("DB_URL 또는 DATABASE_URL을(.env) 설정해주세요.")
 
     engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
-    Base.metadata.create_all(engine)  # 테이블 없을 때만 생성(있으면 그대로)
+    Base.metadata.create_all(engine)  # 테이블 없을 때만 생성
 
     # 1) Wikidata
     wiki_rows = fetch_plants_from_wikidata(limit=limit)
@@ -428,8 +523,8 @@ def run(limit: int = 40, dry_run: bool = False) -> None:
 
         to_save.append(row)
 
-        # API rate-limit 보호
-        time.sleep(0.2)
+        # API rate-limit 보호 (Wikidata REST/Perenual/Clova 전체 고려)
+        time.sleep(0.8)
 
     # 4) DB UPSERT
     with Session(engine) as ses:
