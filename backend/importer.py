@@ -524,7 +524,7 @@ def run(limit: int = 40, dry_run: bool = False) -> None:
         to_save.append(row)
 
         # API rate-limit 보호 (Wikidata REST/Perenual/Clova 전체 고려)
-        time.sleep(0.8)
+        time.sleep(1.2)
 
     # 4) DB UPSERT
     with Session(engine) as ses:
