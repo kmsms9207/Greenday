@@ -95,3 +95,21 @@ def get_all_master_plants(db: Session, has_pets: bool = False) -> List[models.Pl
         # models.py의 PlantMaster에 pet_safe 컬럼이 True인 경우만 필터링
         query = query.filter(models.PlantMaster.pet_safe == True)
     return query.all()
+
+# --- [추가] PlantMaster CRUD ---
+
+def get_master_plant_by_id(db: Session, plant_id: int):
+    """PlantMaster 테이블에서 ID로 단일 식물 정보 조회"""
+    return db.query(models.PlantMaster).filter(models.PlantMaster.id == plant_id).first()
+
+def get_all_master_plants(db: Session, skip: int = 0, limit: int = 100):
+    """PlantMaster 테이블에서 모든 식물 목록 조회"""
+    return db.query(models.PlantMaster).offset(skip).limit(limit).all()
+
+def search_master_plants(db: Session, q: str, skip: int = 0, limit: int = 100):
+    """한국어 이름으로 PlantMaster 테이블에서 식물 검색"""
+    return db.query(models.PlantMaster)\
+             .filter(models.PlantMaster.name_ko.contains(q))\
+             .offset(skip)\
+             .limit(limit)\
+             .all()

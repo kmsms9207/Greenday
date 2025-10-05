@@ -70,3 +70,21 @@ class RecommendItem(BaseModel):
     reasons: List[str] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- Encyclopedia Schemas ---
+
+class PlantMasterInfo(BaseModel):
+    id: int
+    name_ko: str
+    name_en: Optional[str] = None
+    species: str
+    family: Optional[str] = None
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+    difficulty: str
+    light_requirement: str
+    water_cycle_text: Optional[str] = None
+    water_interval_days: Optional[int] = None
+    pet_safe: Optional[bool] = None
+    tags: Optional[List[str]] = None
+    model_config = ConfigDict(from_attributes=True)
