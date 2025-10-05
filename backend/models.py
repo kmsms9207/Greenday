@@ -3,7 +3,7 @@ from sqlalchemy import (
     Column, Integer, String, Boolean, TIMESTAMP, ForeignKey, func,
     Text, Enum, JSON
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from database import Base
 
 
@@ -53,10 +53,10 @@ class PlantMaster(Base):
     species = Column(String(190), nullable=False, unique=True)
     family = Column(String(120), nullable=True)
     image_url = Column(String(1024), nullable=True)
-    description = Column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text) 
     difficulty = Column(Enum('상', '중', '하', name='difficulty_enum'), nullable=False, default='중')
     light_requirement = Column(Enum('음지', '반음지', '양지', name='lightreq_enum'), nullable=False, default='반음지')
-    water_cycle_text = Column(String(50), nullable=True)
+    water_cycle_text: Mapped[str | None] = mapped_column(Text)   
     water_interval_days = Column(Integer, nullable=True)
     pet_safe = Column(Boolean, nullable=True)
     tags = Column(JSON, nullable=True)
