@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import 'my_plant_screen.dart'; // 1. '내 식물' 화면을 import 합니다.
-import 'my_info.dart'; // 3. '내 정보' 화면
+import 'my_plant_screen.dart';
+import 'my_info.dart';
+import 'notification.dart';
+import 'chatbot.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  // 로그인 화면에서 사용자 이름을 전달받기 위한 변수
+  final String userName;
+
+  const MainScreen({super.key, required this.userName});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -12,19 +17,29 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // 2. 하단 탭과 연결될 화면 목록을 정의합니다.
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomePage(), // 0번 인덱스: 커뮤니티
-    Text('성장 일지 페이지'), // 1번 인덱스: 성장 일지
-    MyPlantScreen(), // 2번 인덱스: '식물 정보'를 MyPlantScreen으로 변경
-    MyInfoScreen(), // 3번 인덱스: 내 정보
-  ];
+  late final List<Widget> _widgetOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    // 위젯이 생성될 때, 전달받은 userName으로 화면 목록을 구성
+    _widgetOptions = <Widget>[
+      HomePage(userName: widget.userName), // HomePage에 userName 전달
+      const Text('성장 일지 페이지'),
+      const MyPlantScreen(),
+      // 1. MyInfoScreen에도 userName을 전달하도록 수정합니다.
+      MyInfoScreen(userName: widget.userName),
+    ];
+  }
 
   void _onItemTapped(int index) {
-    if (index == 3) { // 3번 탭: 내 정보
+    if (index == 3) {
+      // 2. '내 정보' 탭을 누를 때도 userName을 전달하도록 수정합니다.
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const MyInfoScreen()),
+        MaterialPageRoute(
+          builder: (context) => MyInfoScreen(userName: widget.userName),
+        ),
       );
     } else {
       setState(() {
@@ -67,9 +82,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// MainScreen의 첫 번째 탭에 해당하는 홈 페이지 위젯
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  // HomePage도 userName을 전달받도록 수정
+  final String userName;
+  const HomePage({super.key, required this.userName});
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +120,12 @@ class HomePage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.notifications_none, color: Colors.black),
             onPressed: () {
-              // TODO: 알림 버튼 기능 구현
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -113,7 +134,7 @@ class HomePage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 공지사항
+            // 공지사항, 큰 회색 박스 등 기존 UI...
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -130,7 +151,6 @@ class HomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // 큰 회색 박스
             Container(
               height: 200,
               decoration: BoxDecoration(
@@ -139,16 +159,19 @@ class HomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // AI 챗봇 카드
             _buildInfoCard(
               title: "AI 챗봇",
               buttonText: "챗봇 상담 받기",
               onPressed: () {
-                // TODO: 챗봇 상담 기능 구현
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatbotScreen(userName: userName),
+                  ),
+                );
               },
             ),
             const SizedBox(height: 16),
-            // 반려식물 추천 카드
             _buildInfoCard(
               title: "반려식물 추천",
               buttonText: "반려 식물 추천 받기",
@@ -162,7 +185,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // AI 챗봇, 반려식물 추천에 사용되는 공통 카드 위젯
   Widget _buildInfoCard({
     required String title,
     required String buttonText,

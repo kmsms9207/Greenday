@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'plant_form.dart';
-import 'plant_info.dart'; // 1. plant_info.dart 파일을 import 합니다.
+import 'plant_info.dart';
 
 class MyPlantScreen extends StatelessWidget {
   const MyPlantScreen({super.key});
@@ -16,9 +16,7 @@ class MyPlantScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            // MainScreen 안에 있으므로 pop 불필요, MainScreen에서 처리
-          },
+          onPressed: () {},
         ),
         title: const Text(
           "GREEN DAY",
@@ -26,30 +24,34 @@ class MyPlantScreen extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Card(
-          elevation: 4.0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(15.0),
+      // 화면 오버플로우를 방지하기 위해 스크롤 기능을 추가합니다.
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Card(
+            elevation: 4.0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(15.0),
+                      ),
+                      // TODO: 대표 식물 이미지를 여기에 표시
                     ),
-                    // TODO: 대표 식물 이미지를 여기에 표시
                   ),
-                ),
-                const SizedBox(height: 24),
-                Expanded(
-                  child: GridView.builder(
+                  const SizedBox(height: 24),
+                  GridView.builder(
+                    shrinkWrap: true, // GridView가 콘텐츠 크기만큼만 공간을 차지하도록 설정
+                    physics:
+                        const NeverScrollableScrollPhysics(), // GridView 자체 스크롤 비활성화
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 4,
@@ -62,7 +64,6 @@ class MyPlantScreen extends StatelessWidget {
                       if (index == 0 || index == 10) {
                         return InkWell(
                           onTap: () {
-                            // plan_form.dart 파일 안의 클래스 이름이 PlanFormScreen이라고 가정
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -86,10 +87,8 @@ class MyPlantScreen extends StatelessWidget {
                       }
                       // 새싹 아이콘 버튼
                       else if (index == 1) {
-                        // 2. 새싹 아이콘 칸을 InkWell로 감싸서 버튼으로 만듭니다.
                         return InkWell(
                           onTap: () {
-                            // 3. 버튼을 누르면 PlantInfoScreen으로 이동합니다.
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -122,8 +121,8 @@ class MyPlantScreen extends StatelessWidget {
                       }
                     },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

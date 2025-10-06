@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'signup.dart';
-import 'main_screen.dart'; // 1. my_plant_screen.dart 대신 main_screen.dart를 import 합니다.
+import 'main_screen.dart'; // 메인 화면을 import 합니다.
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,8 +15,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   Future<void> attemptLogin() async {
-    const String apiUrl =
-        "https://d23c6db83f6a.ngrok-free.app/auth/login"; // 최신 URL로 가정
+    // 보내주신 코드의 최신 URL을 반영합니다.
+    const String apiUrl = "https://2290d432738a.ngrok-free.app/auth/login";
 
     try {
       final response = await http.post(
@@ -37,10 +37,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // TODO: 여기서 발급받은 accessToken을 안전한 곳에 저장해야 합니다.
 
-        // 2. 로그인 성공 후, MainScreen으로 이동하도록 코드를 수정합니다.
+        // 1. 사용자 이름 추출 (임시방편: 이메일에서 @ 앞부분 사용)
+        final email = _usernameController.text;
+        final userName = email.split('@').first;
+
+        // 2. 로그인 성공 후, MainScreen으로 이동하면서 사용자 이름을 전달합니다.
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
+          MaterialPageRoute(
+            builder: (context) => MainScreen(userName: userName),
+          ),
         );
       } else {
         ScaffoldMessenger.of(
