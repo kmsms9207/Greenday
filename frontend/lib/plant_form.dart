@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io'; 
 
 class PlantFormScreen extends StatefulWidget {
   const PlantFormScreen({super.key});
@@ -8,7 +10,18 @@ class PlantFormScreen extends StatefulWidget {
 }
 
 class _PlantFormScreenState extends State<PlantFormScreen> {
-  String? _imagePath; // 선택한 이미지 경로
+  File? _selectedImage; // 선택한 이미지 파일
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +52,7 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
           children: [
             // 식물 별명 + 식물 종
             Center(child: _centerInfoTile("사진", "을 추가해 주세요.")),
-            const SizedBox(height: 50),
+            const SizedBox(height: 30),
             Column(
               children: [
                 inputCard("식물의 별명을 입력해 주세요."),
@@ -64,47 +77,59 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
             ),
             padding: EdgeInsets.zero,
           ),
-          child: const Text("완료", style: TextStyle(fontSize: 25)),
+          child: const Text("저장", style: TextStyle(fontSize: 25)),
         ),
       ),
     );
   }
 
   // 가운데 정렬 위젯
-  Widget _centerInfoTile(String name, String species, {String? imagePath}) {
+  Widget _centerInfoTile(String name, String species) {
+    final hasImage = _selectedImage != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // 사진 영역
-        Container(
-          width: 200,
-          height: 200,
-          decoration: BoxDecoration(
-            color: Colors.grey[300], // 기본 배경색 (회색)
-            image: imagePath != null
-                ? DecorationImage(
-                    image: AssetImage(imagePath),
-                    fit: BoxFit.cover,
-                  )
-                : null, // imagePath가 없으면 빈 네모
+        GestureDetector(
+          onTap: _pickImage, // 누르면 사진 선택
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey[300], // 기본 배경색 (회색)
+              image: _selectedImage != null
+                  ? DecorationImage(
+                      image: FileImage(_selectedImage!),
+                      fit: BoxFit.cover,
+                    )
+                  : null, // _selectedImage가 없으면 빈 네모
+            ),
+            child: _selectedImage == null
+                ? const Icon(Icons.camera_alt, size: 40, color: Colors.white)
+                : null, // 사진 없으면 카메라 아이콘
           ),
-          child: imagePath == null
-              ? const Icon(Icons.camera_alt, size: 40, color: Colors.white)
-              : null, // 사진 없으면 카메라 아이콘
         ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(fontSize: 20, color: Color(0xFF486B48)),
+
+        Container(
+          height: 30, // 텍스트 영역 최소 높이
+          alignment: Alignment.center,
+          child: Opacity(
+            opacity: hasImage ? 0 : 1, // 사진이 있으면 글씨 숨김, 없으면 보임
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(fontSize: 20, color: Color(0xFF486B48)),
+                ),
+                Text(
+                  species,
+                  style: const TextStyle(fontSize: 20, color: Colors.black),
+                ),
+              ],
             ),
-            Text(
-              species,
-              style: const TextStyle(fontSize: 20, color: Colors.black),
-            ),
-          ],
-        ),
+          ),
+        )
       ],
     );
   }

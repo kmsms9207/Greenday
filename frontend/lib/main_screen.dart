@@ -3,6 +3,7 @@ import 'my_plant_screen.dart';
 import 'my_info.dart';
 import 'notification.dart';
 import 'chatbot.dart';
+import 'encyclopedia_list.dart';
 
 class MainScreen extends StatefulWidget {
   // 로그인 화면에서 사용자 이름을 전달받기 위한 변수
@@ -150,14 +151,36 @@ class HomePage extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 16),
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: const Color(0xFFA4B6A4),
-                borderRadius: BorderRadius.circular(20),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const EncyclopediaListScreen(), // 백과사전 화면
+                  ),
+                );
+              },
+              child: Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA4B6A4),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Center(
+                  child: Text(
+                    "식물 백과사전",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
             ),
+
             const SizedBox(height: 16),
             _buildInfoCard(
               title: "AI 챗봇",
