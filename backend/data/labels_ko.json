@@ -1,0 +1,51 @@
+{
+  "plants": {
+    "potato": "감자",
+    "tomato": "토마토",
+    "corn": "옥수수",
+    "wheat": "밀",
+    "apple": "사과",
+    "grape": "포도",
+    "orange": "오렌지",
+    "peach": "복숭아",
+    "pepper": "고추",
+    "strawberry": "딸기",
+    "soybean": "대두",
+    "squash": "호박",
+    "raspberry": "라즈베리",
+    "blueberry": "블루베리"
+  },
+  "diseases": {
+    "healthy": "정상",
+    "early_blight": "겹무늬병",
+    "late_blight": "역병",
+    "common_rust": "녹병",
+    "brown_rust": "갈색녹병",
+    "powdery_mildew": "흰가루병",
+    "leaf_mold": "잎곰팡이병",
+    "septoria_leaf_spot": "점무늬병",
+    "bacterial_spot": "세균성 반점병",
+    "leaf_scorch": "잎마름병",
+    "target_spot": "표적무늬병",
+    "tomato_yellow_leaf_curl_virus": "토마토황화잎말림바이러스",
+    "tomato_mosaic_virus": "토마토모자이크바이러스",
+    "spider_mites_two_spotted_spider_mite": "점박이응애 피해",
+    "cercospora_leaf_spot_gray_leaf_spot": "회색잎반점병",
+    "northern_leaf_blight": "북부잎마름병",
+    "black_rot": "검은썩음병",
+    "cedar_apple_rust": "삼나무녹병",
+    "esca_black_measles": "에스카병(검은홍역병)",
+    "leaf_blight_isariopsis_leaf_spot": "잎마름병(이사리옵시스 잎반점)",
+    "haunglongbing_citrus_greening": "황룡병(감귤녹화병)",
+    "gray_leaf_spot": "Gray_Leaf_Spot",
+    "yellow_rust": "yellow_rust"
+  },
+  "labels": {
+    "Potato___Early_Blight": "감자 겹무늬병",
+    "Corn___Gray_Leaf_Spot": "옥수수 Gray_Leaf_Spot",
+    "Corn___Common_Rust": "옥수수 녹병",
+    "___early_blight": "겹무늬병",
+    "___healthy": "정상",
+    "___yellow_rust": "yellow_rust"
+  }
+}

@@ -31,6 +31,7 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
+
 # --- Plant Schemas ---
 
 class PlantBase(BaseModel):
@@ -88,3 +89,15 @@ class PlantMasterInfo(BaseModel):
     pet_safe: Optional[bool] = None
     tags: Optional[List[str]] = None
     model_config = ConfigDict(from_attributes=True)
+
+# AI 진단 응답 스키마
+class DiagnosisResult(BaseModel):
+    label: str # 예: 'Tomato___Late_blight'
+    score: float # 0.0 ~ 1.0
+
+      # 추가: 분리/한글 매핑
+    plant: str            # 예: "Potato"
+    disease: str          # 예: "Early_Blight"
+    plant_ko: str         # 예: "감자"
+    disease_ko: str       # 예: "겹무늬병"
+    label_ko: str         # 예: "감자 겹무늬병" 또는 "감자 정상"
