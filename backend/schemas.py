@@ -31,7 +31,6 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
-
 # --- Plant Schemas ---
 
 class PlantBase(BaseModel):
@@ -69,7 +68,6 @@ class RecommendItem(BaseModel):
     # 추천 점수와 이유를 함께 보내 UX를 개선합니다.
     score: float
     reasons: List[str] = []
-
     model_config = ConfigDict(from_attributes=True)
 
 # --- Encyclopedia Schemas ---
@@ -84,10 +82,9 @@ class PlantMasterInfo(BaseModel):
     description: Optional[str] = None
     difficulty: str
     light_requirement: str
-    water_cycle_text: Optional[str] = None
-    water_interval_days: Optional[int] = None
+    watering_type: Optional[str] = None
     pet_safe: Optional[bool] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[List] = None # JSON 필드는 보통 List나 Dict로 받습니다.
     model_config = ConfigDict(from_attributes=True)
 
 # AI 진단 응답 스키마

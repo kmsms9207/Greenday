@@ -83,28 +83,30 @@ def delete_plant(db: Session, plant_id: int) -> bool:
     db.commit()
     return True
 
-# --- [추가] Recommendation CRUD ---
-
-def get_all_master_plants(db: Session, has_pets: bool = False) -> List[models.PlantMaster]:
-    """
-    추천 대상이 되는 모든 마스터 식물 데이터를 조회합니다.
-    - has_pets: True일 경우, 반려동물에게 안전한 식물만 필터링합니다.
-    """
-    query = db.query(models.PlantMaster)
-    if has_pets:
-        # models.py의 PlantMaster에 pet_safe 컬럼이 True인 경우만 필터링
-        query = query.filter(models.PlantMaster.pet_safe == True)
-    return query.all()
-
 # --- [추가] PlantMaster CRUD ---
 
 def get_master_plant_by_id(db: Session, plant_id: int):
     """PlantMaster 테이블에서 ID로 단일 식물 정보 조회"""
     return db.query(models.PlantMaster).filter(models.PlantMaster.id == plant_id).first()
 
-def get_all_master_plants(db: Session, skip: int = 0, limit: int = 100):
-    """PlantMaster 테이블에서 모든 식물 목록 조회"""
-    return db.query(models.PlantMaster).offset(skip).limit(limit).all()
+def get_all_master_plants(
+    db: Session, 
+    skip: int = 0, 
+    limit: int = 100, 
+    has_pets: Optional[bool] = None
+) -> List[models.PlantMaster]:
+    """
+    PlantMaster 테이블에서 모든 식물 목록 조회
+    - skip, limit: 페이징
+    - has_pets: None(모두), True(반려동물 안전한 것만), False(반려동물 위험한 것만)
+    """
+    query = db.query(models.PlantMaster)
+    
+    # 반려동물 필터링 (옵션)
+    if has_pets is not None:
+        query = query.filter(models.PlantMaster.pet_safe == has_pets)
+    
+    return query.offset(skip).limit(limit).all()
 
 def search_master_plants(db: Session, q: str, skip: int = 0, limit: int = 100):
     """한국어 이름으로 PlantMaster 테이블에서 식물 검색"""
