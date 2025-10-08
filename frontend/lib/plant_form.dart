@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io'; 
+import 'model/api.dart';
 
 class PlantFormScreen extends StatefulWidget {
   const PlantFormScreen({super.key});
@@ -11,6 +12,9 @@ class PlantFormScreen extends StatefulWidget {
 
 class _PlantFormScreenState extends State<PlantFormScreen> {
   File? _selectedImage; // 선택한 이미지 파일
+
+  TextEditingController _speciesController = TextEditingController();
+  List<String> _suggestions = []; // API에서 받아올 추천 목록
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -56,12 +60,31 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
             Column(
               children: [
                 inputCard("식물의 별명을 입력해 주세요."),
-                inputCard("식물의 종을 입력해 주세요."),
+                inputCardWithSuggestions(
+                  controller: _speciesController,
+                  hint: "식물의 종을 입력해 주세요.",
+                  suggestions: _suggestions,
+                  onChanged: (value) async {
+                    if (value.isEmpty) {
+                      setState(() => _suggestions = []);
+                      return;
+                    }
+                    final suggestions = await fetchPlantSpecies(value);
+                    setState(() => _suggestions = suggestions);
+                  },
+                  onSuggestionTap: (s) {
+                    setState(() {
+                      _speciesController.text = s;
+                      _suggestions = [];
+                    });
+                  },
+                ),
               ],
             ),
           ],
         ),
       ),
+      
       bottomNavigationBar: SizedBox(
         width: double.infinity,
         height: 60, // 버튼 높이
@@ -157,4 +180,57 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
       ),
     );
   }
+}
+
+Widget inputCardWithSuggestions({
+  required TextEditingController controller,
+  required String hint,
+  required List<String> suggestions,
+  required Function(String) onChanged,
+  required Function(String) onSuggestionTap,
+}) {
+  return Column(
+    children: [
+      Card(
+        color: const Color(0xFFF1F1F1),
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Container(
+          width: double.infinity,
+          height: 50,
+          padding: const EdgeInsets.all(12),
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: hint,
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+            style: const TextStyle(fontSize: 16, color: Color(0xFF656565)),
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+      if (suggestions.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          height: 150,
+          child: ListView(
+            children: suggestions
+                .map((s) => ListTile(
+                      title: Text(s),
+                      onTap: () => onSuggestionTap(s),
+                    ))
+                .toList(),
+          ),
+        ),
+    ],
+  );
 }

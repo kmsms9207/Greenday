@@ -21,3 +21,14 @@ Future<Plant> fetchPlantDetail(int id) async {
     throw Exception('API 호출 실패: ${response.statusCode}');
   }
 }
+
+Future<List<String>> fetchPlantSpecies(String query) async {
+  final response = await http.get(Uri.parse('API_URL?query=$query'));
+
+  if (response.statusCode == 200) {
+    final List<dynamic> jsonList = jsonDecode(response.body);
+    return jsonList.map((json) => json['name'].toString()).toList();
+  } else {
+    throw Exception('API 호출 실패: ${response.statusCode}');
+  }
+}
