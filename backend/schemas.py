@@ -98,3 +98,20 @@ class DiagnosisResult(BaseModel):
     plant_ko: str         # 예: "감자"
     disease_ko: str       # 예: "겹무늬병"
     label_ko: str         # 예: "감자 겹무늬병" 또는 "감자 정상"
+
+class RemedyRequest(BaseModel):
+    disease_key: str              # 예: "powdery_mildew"
+    severity: Optional[str] = None  # "LOW" | "MEDIUM" | "HIGH" (없으면 자동 판단)
+    plant_name: Optional[str] = None  # 식물명(선택)
+
+class RemedyAdvice(BaseModel):
+    disease_key: str
+    disease_ko: str
+    title_ko: str
+    severity: str                  # 최종 판단된 심각도
+    summary_ko: str
+    immediate_actions: List[str]   # 바로 할 일(오늘)
+    care_plan: List[str]           # 1~2주 관리 플랜
+    prevention: List[str]          # 재발 방지
+    caution: List[str]             # 주의사항(애완동물/약제 등)
+    when_to_call_pro: List[str]    # 폐기/전문가 문의 기준

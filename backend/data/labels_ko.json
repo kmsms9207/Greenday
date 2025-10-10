@@ -38,7 +38,8 @@
     "leaf_blight_isariopsis_leaf_spot": "잎마름병(이사리옵시스 잎반점)",
     "haunglongbing_citrus_greening": "황룡병(감귤녹화병)",
     "gray_leaf_spot": "Gray_Leaf_Spot",
-    "yellow_rust": "yellow_rust"
+    "yellow_rust": "yellow_rust",
+    "root_rot": "root_rot"
   },
   "labels": {
     "Potato___Early_Blight": "감자 겹무늬병",
@@ -46,6 +47,7 @@
     "Corn___Common_Rust": "옥수수 녹병",
     "___early_blight": "겹무늬병",
     "___healthy": "정상",
-    "___yellow_rust": "yellow_rust"
+    "___yellow_rust": "yellow_rust",
+    "___root_rot": "root_rot"
   }
 }
