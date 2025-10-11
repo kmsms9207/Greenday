@@ -87,6 +87,17 @@ class PlantMasterInfo(BaseModel):
     tags: Optional[List] = None # JSON 필드는 보통 List나 Dict로 받습니다.
     model_config = ConfigDict(from_attributes=True)
 
+# ⭐️ 관리자용 스키마
+class PlantCreateRequest(BaseModel):
+    species: str
+    name_ko: str
+    difficulty: str
+    light_requirement: str
+    watering_type: str
+    pet_safe: bool
+    family: Optional[str] = None
+
+
 # AI 진단 응답 스키마
 class DiagnosisResult(BaseModel):
     label: str # 예: 'Tomato___Late_blight'

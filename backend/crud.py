@@ -115,3 +115,35 @@ def search_master_plants(db: Session, q: str, skip: int = 0, limit: int = 100):
              .offset(skip)\
              .limit(limit)\
              .all()
+
+# ⭐️ (관리자용) PlantMaster 데이터 생성
+def create_master_plant(db: Session, plant: models.PlantMaster) -> models.PlantMaster:
+    """서비스 계층에서 완전히 조립된 PlantMaster 객체를 받아 DB에 저장합니다."""
+    db.add(plant)
+    db.commit()
+    db.refresh(plant)
+    return plant
+
+# ⭐️ (관리자용) 종(species) 이름으로 중복 확인
+def get_master_plant_by_species(db: Session, species: str) -> Optional[models.PlantMaster]:
+    """종(species) 이름으로 PlantMaster 테이블에서 식물을 조회합니다."""
+    return db.query(models.PlantMaster).filter(models.PlantMaster.species == species).first()
+
+# ⭐️ 알람: '물 줬어요' 기능
+def update_last_watered_at(db: Session, plant_id: int) -> models.Plant:
+    plant = db.query(models.Plant).filter(models.Plant.id == plant_id).first()
+    if plant:
+        plant.last_watered_at = datetime.now(plant.created_at.tzinfo) # DB 타임존과 일치
+        plant.notification_snoozed_until = None # 미루기 상태 초기화
+        db.commit()
+        db.refresh(plant)
+    return plant
+
+# ⭐️ 알람: '하루 미루기' 기능
+def snooze_notification_for_plant(db: Session, plant_id: int) -> models.Plant:
+    plant = db.query(models.Plant).filter(models.Plant.id == plant_id).first()
+    if plant:
+        plant.notification_snoozed_until = datetime.utcnow().date() + timedelta(days=1)
+        db.commit()
+        db.refresh(plant)
+    return plant

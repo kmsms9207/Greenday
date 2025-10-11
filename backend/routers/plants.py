@@ -86,3 +86,44 @@ def delete_user_plant(plant_id: int, current_user: models.User = Depends(get_cur
         
     crud.delete_plant(db=db, plant_id=plant_id)
     # 204 응답은 본문(body)이 없어야 하므로, 아무것도 return하지 않습니다.
+
+
+@router.post(
+    "/{plant_id}/water",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="'물 줬어요' 기록",
+    description="특정 식물의 '마지막으로 물 준 날짜'를 현재 시간으로 업데이트합니다."
+)
+def record_watering(
+    plant_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserInfo = Depends(get_current_user)
+):
+    plant = crud.get_plant_by_id(db, plant_id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    if plant.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this plant")
+    
+    crud.update_last_watered_at(db, plant_id=plant_id)
+    return
+
+@router.post(
+    "/{plant_id}/snooze",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="물주기 알림 '하루 미루기'",
+    description="특정 식물의 물주기 알림을 내일로 미룹니다."
+)
+def snooze_watering_notification(
+    plant_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserInfo = Depends(get_current_user)
+):
+    plant = crud.get_plant_by_id(db, plant_id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    if plant.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this plant")
+
+    crud.snooze_notification_for_plant(db, plant_id=plant_id)
+    return
