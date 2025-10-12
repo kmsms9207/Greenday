@@ -126,3 +126,24 @@ class RemedyAdvice(BaseModel):
     prevention: List[str]          # 재발 방지
     caution: List[str]             # 주의사항(애완동물/약제 등)
     when_to_call_pro: List[str]    # 폐기/전문가 문의 기준
+
+class ChatMessageOut(BaseModel):
+    id: int
+    thread_id: int
+    role: str
+    content: str
+    image_url: Optional[str] = None
+    provider_resp: Optional[dict] = None  # JSON이라면 dict
+    tokens_in: Optional[int] = None
+    tokens_out: Optional[int] = None
+    created_at: datetime   # ← str → datetime 로 변경
+    model_config = ConfigDict(from_attributes=True)
+
+class ChatSendRequest(BaseModel):
+    thread_id: Optional[int] = None
+    message: str
+    image_url: Optional[str] = None  # 이미지 프롬프트가 있으면 사용
+
+class ChatSendResponse(BaseModel):
+    thread_id: int
+    assistant: ChatMessageOut

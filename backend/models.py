@@ -80,14 +80,20 @@ class ImageAsset(Base):
     )
 
 
+from sqlalchemy import (
+    Column, Integer, String, Boolean, TIMESTAMP, ForeignKey, Text, Enum, JSON,
+    BigInteger, DateTime, Index, Numeric
+)
+from sqlalchemy.sql import func
+from sqlalchemy.dialects.mysql import BIGINT as MYSQL_BIGINT
+
 class Diagnosis(Base):
     __tablename__ = "diagnoses"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    # ▼ INT로 변경 (users.id와 동일)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
-    image_hash = Column(BigInteger, index=True, nullable=False)
+    image_hash = Column(MYSQL_BIGINT(unsigned=True), index=True, nullable=False)
     image_url = Column(String(512))
     thumb_url = Column(String(512))
     width = Column(Integer)
@@ -100,7 +106,7 @@ class Diagnosis(Base):
     score = Column(Numeric(6, 4), nullable=False)
     severity = Column(Enum("LOW", "MEDIUM", "HIGH", name="severity_enum"), nullable=False)
     mode = Column(String(32), nullable=False, default="disease_only")
-    reason_ko = Column(Text, nullable=True)  # ← 길이 없는 VARCHAR 대신 Text
+    reason_ko = Column(Text, nullable=True)
 
     source = Column(Enum("hf", "llm", "ensemble", "disease_only", name="source_enum"),
                     nullable=False, default="disease_only")
@@ -112,6 +118,12 @@ class Diagnosis(Base):
     per_model = Column(JSON)
     clip_votes = Column(JSON)
 
+    # ---------- ▼ 여기부터 리메디(해결 방안) 캐시 컬럼 추가 ▼ ----------
+    remedy_ko = Column(Text, nullable=True)  # LLM/지식베이스가 만든 한국어 해결 방안
+    remedy_source = Column(Enum("kb", "llm", "mixed", name="remedy_source_enum"), nullable=True)
+    remedy_meta = Column(JSON, nullable=True)  # 프롬프트/모델/버전/토큰/출처 원시응답 등
+    # ---------- ▲ 리메디 캐시 컬럼 추가 끝 ▲ ----------
+
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     user = relationship("User", backref="diagnoses")
@@ -121,3 +133,24 @@ class Diagnosis(Base):
         Index("idx_diagnoses_img_hash", "image_hash"),
         Index("idx_diagnoses_disease", "disease_key"),
     )
+
+class ChatThread(Base):
+    __tablename__ = "chat_threads"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String(120), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    thread_id = Column(BigInteger, ForeignKey("chat_threads.id"), nullable=False, index=True)
+    role = Column(Enum("system","user","assistant", name="chat_role"), nullable=False)
+    content = Column(Text, nullable=False)
+    image_url = Column(String(512), nullable=True)   # 선택: 이미지 프롬프트가 있을 때
+    provider_resp = Column(JSON, nullable=True)      # 원시 응답(디버그/추적용)
+    tokens_in = Column(Integer, nullable=True)
+    tokens_out = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
