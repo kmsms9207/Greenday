@@ -39,7 +39,8 @@
     "haunglongbing_citrus_greening": "황룡병(감귤녹화병)",
     "gray_leaf_spot": "Gray_Leaf_Spot",
     "yellow_rust": "yellow_rust",
-    "root_rot": "root_rot"
+    "root_rot": "root_rot",
+    "edema": "edema"
   },
   "labels": {
     "Potato___Early_Blight": "감자 겹무늬병",
@@ -48,6 +49,7 @@
     "___early_blight": "겹무늬병",
     "___healthy": "정상",
     "___yellow_rust": "yellow_rust",
-    "___root_rot": "root_rot"
+    "___root_rot": "root_rot",
+    "___edema": "edema"
   }
 }

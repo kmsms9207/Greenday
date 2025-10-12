@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 import models
 import database
-from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin 
+from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin,chat
+
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv()) 
+
 
 # 수정: database.engine을 직접 사용하도록 변경
 models.Base.metadata.create_all(bind=database.engine)
@@ -22,7 +26,7 @@ app.include_router(diagnose_v2.router)
 app.include_router(diagnose_v3.router)
 app.include_router(media.router)
 app.include_router(remedy.router)
-
+app.include_router(chat.router)
 
 @app.get("/")
 def read_root():

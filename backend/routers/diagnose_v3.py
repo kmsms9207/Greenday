@@ -22,19 +22,29 @@ from dependencies import get_current_user
 
 from transformers import pipeline, AutoImageProcessor
 
-from services.i18n import to_korean, cache_set_label_ko  # Papago 없어도 동작
+# Papago 없어도 동작하는 한글 매핑 (rule/캐시 위주)
+from services.i18n import to_korean, cache_set_label_ko
+
+# pHash64와 썸네일 유틸 (Unsigned 64-bit를 고려한 구현이어야 함)
 from utils.image_meta import compute_phash64, make_thumbnail_bytes
 
 logger = logging.getLogger(__name__)
 
 # ===== 환경 변수 =====
-MODEL_IDS = [m.strip() for m in os.getenv("GREENDAY_V2_MODELS", "wambugu71/crop_leaf_diseases_vit").split(";") if m.strip()]
+MODEL_IDS = [
+    m.strip() for m in os.getenv(
+        "GREENDAY_V2_MODELS",
+        "wambugu71/crop_leaf_diseases_vit"
+    ).split(";") if m.strip()
+]
 USE_CLIP_DEFAULT = os.getenv("GREENDAY_V2_USE_CLIP", "true").lower() in {"1", "true", "yes"}
 USE_TTA_DEFAULT  = os.getenv("GREENDAY_V2_USE_TTA", "true").lower() in {"1", "true", "yes"}
 CLIP_MODEL_ID = os.getenv("GREENDAY_V2_CLIP_MODEL", "openai/clip-vit-base-patch32")
 
 THRESHOLD: float = float(os.getenv("GREENDAY_V2_THRESHOLD", "0.25"))
-IGNORE_LABELS = {x.strip().lower() for x in os.getenv("GREENDAY_V2_IGNORE", "invalid").split(",") if x.strip()}
+IGNORE_LABELS = {
+    x.strip().lower() for x in os.getenv("GREENDAY_V2_IGNORE", "invalid").split(",") if x.strip()
+}
 
 LLM_LOW: float = float(os.getenv("GREENDAY_V2_LLM_LOW", "0.35"))   # (참고값)
 LLM_HIGH: float = float(os.getenv("GREENDAY_V2_LLM_HIGH", "0.80"))
@@ -55,6 +65,7 @@ DISEASE_LIST = [x.strip() for x in os.getenv("GREENDAY_V3_DISEASE_LIST", _defaul
 DIAG_CACHE_TTL_SECONDS: int = int(os.getenv("DIAG_CACHE_TTL_SECONDS", str(90 * 24 * 3600)))
 
 def _resolve_device() -> int:
+    # cuda 사용 시 GREENDAY_AI_DEVICE=cuda 로 설정
     return 0 if os.getenv("GREENDAY_AI_DEVICE", "").lower() == "cuda" else -1
 _DEVICE = _resolve_device()
 
@@ -98,6 +109,9 @@ async def get_clip():
 
 # ===== 유틸 =====
 def split_label(raw_label: str) -> Tuple[str, str]:
+    """
+    'Tomato___Early_blight' -> ('Tomato', 'Early_blight')
+    """
     if "___" in raw_label:
         p, d = raw_label.split("___", 1)
         return p.strip(), d.strip()
@@ -130,6 +144,9 @@ def normalize_disease_key(name: str) -> str:
     return k
 
 def hsv_leaf_crop(pil: Image.Image) -> Image.Image:
+    """
+    HSV S,V 임계로 잎 영역 대략 크롭 (실패 시 원본 반환)
+    """
     try:
         hsv = pil.convert("RGB").convert("HSV")
         arr = np.array(hsv); s, v = arr[...,1], arr[...,2]
@@ -172,7 +189,11 @@ async def clip_scores_disease_only(pil: Image.Image, disease_list: List[str]) ->
     try:
         clip_pipe = await get_clip()
         cand_texts = [d.replace("_"," ") for d in disease_list]
-        out = clip_pipe(pil, candidate_labels=cand_texts, hypothesis_template="a close-up photo of a leaf with {}")
+        out = clip_pipe(
+            pil,
+            candidate_labels=cand_texts,
+            hypothesis_template="a close-up photo of a leaf with {}"
+        )
         scores: Dict[str, float] = {}
         for o in out:
             raw = str(o["label"])
@@ -206,6 +227,10 @@ def build_response_from_row(row) -> Dict[str, Any]:
         resp["per_model"] = row.per_model
     if row.clip_votes is not None:
         resp["clip_votes"] = row.clip_votes
+    # (선택) 리메디 캐시가 있다면 포함하고 싶을 때:
+    if hasattr(row, "remedy_ko") and row.remedy_ko:
+        resp["remedy_ko"] = row.remedy_ko
+        resp["remedy_source"] = getattr(row, "remedy_source", None)
     return resp
 
 # ===== Router =====
@@ -372,7 +397,7 @@ async def diagnose_auto(
 
         disease_key=final_disease_key,
         disease_ko=label_ko,
-        score=round(final_conf, 4),  # Numeric 컬럼에 숫자형
+        score=round(final_conf, 4),
         severity="HIGH" if final_conf >= 0.8 else "MEDIUM" if final_conf >= 0.5 else "LOW",
         mode="disease_only",
         reason_ko="",
@@ -384,12 +409,19 @@ async def diagnose_auto(
         clip_model=CLIP_MODEL_ID,
         thresholds={"threshold": THRESHOLD, "llm_low": LLM_LOW, "llm_high": LLM_HIGH},
         per_model=[
-            {"model_id": p.model_id, "label_raw": p.label, "score": round(p.score, 4),
-             "disease_mapped": normalize_disease_key(split_label(p.label)[1])}
+            {
+                "model_id": p.model_id,
+                "label_raw": p.label,
+                "score": round(p.score, 4),
+                "disease_mapped": normalize_disease_key(split_label(p.label)[1]),
+            }
             for p in per_model_preds
             if (p.score >= THRESHOLD and p.label.lower() not in IGNORE_LABELS)
         ] if include_per_model else None,
-        clip_votes=[{"label": k, "score": float(v)} for k, v in sorted(disease_scores_clip.items(), key=lambda x: -x[1])] if disease_scores_clip else None,
+        clip_votes=[
+            {"label": k, "score": float(v)}
+            for k, v in sorted(disease_scores_clip.items(), key=lambda x: -x[1])
+        ] if disease_scores_clip else None,
     )
     db.add(diag); db.commit(); db.refresh(diag)
 
