@@ -1,5 +1,5 @@
 from typing import Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import models, schemas
 from core.security import get_password_hash
 
@@ -43,23 +43,37 @@ def update_user_password(db: Session, email: str, new_password: str):
 
 # --- Plant CRUD ---
 
-def create_plant(db: Session, plant: schemas.PlantCreate, user_id: int) -> models.Plant:
-    new_plant = models.Plant(
-        name=plant.name,
-        species=plant.species,
-        image_url=plant.image_url,
+def create_plant(db: Session, user_id: int, name: str, species: str, plant_master_id: int) -> models.Plant:
+    """
+    사용자의 새 반려식물을 생성합니다.
+    - name: 사용자가 직접 입력한 애칭
+    - species: PlantMaster DB에서 가져온 정확한 학명
+    - plant_master_id: 참조하는 PlantMaster의 ID
+    """
+    db_plant = models.Plant(
+        name=name,
+        species=species,
         owner_id=user_id,
+        plant_master_id=plant_master_id, # [수정] 전달받은 plant_master_id를 저장
+        image_url=None
     )
-    db.add(new_plant)
+    db.add(db_plant)
     db.commit()
-    db.refresh(new_plant)
-    return new_plant
+    db.refresh(db_plant)
+    return db_plant
 
 def get_plants_by_owner(db: Session, user_id: int) -> List[models.Plant]:
-    return db.query(models.Plant).filter(models.Plant.owner_id == user_id).order_by(models.Plant.id.desc()).all()
+    return db.query(models.Plant)\
+        .options(joinedload(models.Plant.master_info))\
+        .filter(models.Plant.owner_id == user_id)\
+        .order_by(models.Plant.id.desc())\
+        .all()
 
 def get_plant_by_id(db: Session, plant_id: int) -> Optional[models.Plant]:
-    return db.query(models.Plant).filter(models.Plant.id == plant_id).first()
+    return db.query(models.Plant)\
+        .options(joinedload(models.Plant.master_info))\
+        .filter(models.Plant.id == plant_id)\
+        .first()
 
 def update_plant(db: Session, plant_id: int, plant_update_data: schemas.PlantCreate) -> Optional[models.Plant]:
     plant_obj = get_plant_by_id(db, plant_id)
@@ -147,3 +161,12 @@ def snooze_notification_for_plant(db: Session, plant_id: int) -> models.Plant:
         db.commit()
         db.refresh(plant)
     return plant
+
+# ⭐️ FCM 푸시 토큰 저장/갱신
+def update_user_push_token(db: Session, user_id: int, token: str) -> models.User:
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        user.push_token = token
+        db.commit()
+        db.refresh(user)
+    return user

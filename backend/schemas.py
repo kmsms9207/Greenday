@@ -35,16 +35,18 @@ class ResetPasswordRequest(BaseModel):
 
 class PlantBase(BaseModel):
     name: str
-    species: str
-    image_url: Optional[str] = None
+    
 
 class PlantCreate(PlantBase):
-    pass
+    plant_master_id: int # 백과사전에서 선택한 식물의 고유 ID
 
 class Plant(PlantBase):
     id: int
     owner_id: int
     created_at: datetime
+    name: str
+    species: str # DB에는 학명이 저장되므로, 응답 시에는 포함됩니다.
+    master_image_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # --- Recommendation Schemas ---
@@ -147,3 +149,7 @@ class ChatSendRequest(BaseModel):
 class ChatSendResponse(BaseModel):
     thread_id: int
     assistant: ChatMessageOut
+
+# --- Push Notification Schemas ---
+class PushTokenUpdateRequest(BaseModel):
+    push_token: str

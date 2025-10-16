@@ -4,8 +4,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import Session
 
-# ⭐️ 중요: FastAPI 앱의 설정과 모델을 가져와야 합니다.
-# 이 경로(core.config, models 등)는 실제 프로젝트 구조에 맞게 조정해야 할 수 있습니다.
+
 from core.config import settings
 from models import Plant, User, PlantMaster
 from services.push_sender import send_push_notification # ⭐️ 푸시 발송 서비스 (별도 구현 필요)

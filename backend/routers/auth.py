@@ -158,3 +158,22 @@ def reset_password(request: schemas.ResetPasswordRequest, db: Session = Depends(
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
 
     return {"message": "비밀번호가 성공적으로 재설정되었습니다."}
+
+# ⭐️ FCM 푸시 토큰 등록/갱신
+@router.post(
+    "/users/me/push-token",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="FCM 푸시 토큰 등록/갱신"
+)
+def update_push_token(
+    token_data: schemas.PushTokenUpdateRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user) # ⭐️ 스키마 대신 모델을 사용
+):
+    
+    crud.update_user_push_token(
+        db=db, 
+        user_id=current_user.id, 
+        token=token_data.push_token
+    )
+    return

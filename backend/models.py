@@ -21,7 +21,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     is_verified = Column(Boolean, default=False)
-    
+    push_token = Column(String(255), nullable=True, unique=True)
     plants = relationship("Plant", back_populates="owner", cascade="all, delete-orphan")
     image_assets = relationship("ImageAsset", back_populates="user")
     diagnoses = relationship("Diagnosis", back_populates="user")
@@ -35,9 +35,9 @@ class Plant(Base):
     image_url = Column(String(255), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+    plant_master_id = Column(Integer, ForeignKey("plants_master.id"), nullable=False)
     owner = relationship("User", back_populates="plants")
-    
+    master_info = relationship("PlantMaster")
     # --- ⬇️ 물주기 알림 기능  ⬇️ ---
     last_watered_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
     is_notification_enabled = Column(Boolean, nullable=False, default=True)

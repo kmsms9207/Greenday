@@ -1,34 +1,34 @@
+import firebase_admin
+from firebase_admin import credentials, messaging
+
+# 1. Firebase Admin SDK 초기화
+try:
+    cred = credentials.Certificate("greenday-firebase-credentials.json")
+    firebase_admin.initialize_app(cred)
+    print("Firebase Admin SDK가 성공적으로 초기화되었습니다.")
+except Exception as e:
+    print(f"Firebase Admin SDK 초기화 오류: {e}")
+    # 실제 운영 환경에서는 logger.error() 등을 사용해 기록해야 합니다.
+
+
 def send_push_notification(token: str, title: str, body: str):
     """
-    실제 푸시 알림을 발송하는 서비스 함수입니다.
-    (현재는 테스트를 위해 콘솔에 출력하는 가상(mock) 기능으로 구현)
-    
-    Args:
-        token (str): 알림을 받을 사용자의 디바이스 푸시 토큰
-        title (str): 푸시 알림의 제목
-        body (str): 푸시 알림의 내용
+    Firebase Cloud Messaging(FCM)을 통해 실제 푸시 알림을 발송합니다.
     """
-    
-    print("--- 푸시 알림 발송 ---")
-    print(f"To: {token}")
-    print(f"Title: {title}")
-    print(f"Body: {body}")
-    print("--------------------------")
+    if not firebase_admin._apps:
+        print("Firebase 앱이 초기화되지 않아 푸시를 보낼 수 없습니다.")
+        return
 
-    # TODO: 추후 실제 FCM 연동 로직을 여기에 구현합니다.
-    # 예시:
-    # import firebase_admin
-    # from firebase_admin import credentials, messaging
-    #
-    # if not firebase_admin._apps:
-    #     cred = credentials.Certificate("path/to/your/firebase-credentials.json")
-    #     firebase_admin.initialize_app(cred)
-    #
-    # message = messaging.Message(
-    #     notification=messaging.Notification(title=title, body=body),
-    #     token=token,
-    # )
-    # response = messaging.send(message)
-    # print('Successfully sent message:', response)
+    message = messaging.Message(
+        notification=messaging.Notification(title=title, body=body),
+        token=token,
+    )
     
-    return {"status": "success", "message": "Notification sent (mock)"}
+    try:
+        response = messaging.send(message)
+        print(f"[{token[:10]}...]에게 성공적으로 메시지를 보냈습니다: {response}")
+        return {"status": "success", "response": response}
+    except Exception as e:
+        print(f"[{token[:10]}...]에게 메시지 보내기 실패: {e}")
+        # 예: 토큰이 유효하지 않은 경우 등 다양한 에러 처리 가능
+        return {"status": "error", "message": str(e)}
