@@ -1,29 +1,38 @@
-# Backend
-backend/venv/
-backend/__pycache__/
-backend/*.pyc
-backend/.env
+# === Backend (Python / FastAPI) === 
+backend/venv/ 
+backend/__pycache__/ 
+backend/*.pyc 
+backend/.env 
+backend/*.log 
+backend/*.db 
+backend/greenday-firebase-credentials.json 
 
-# IDE/에디터 설정
-backend/.vscode/
-backend/.idea/
+# === Frontend (Flutter) === 
+frontend/build/ 
+frontend/node_modules/ 
+frontend/.DS_Store 
+frontend/.dart_tool/ 
+frontend/.flutter-plugins 
+frontend/.flutter-plugins-dependencies 
+frontend/.packages 
+frontend/*.iml 
+frontend/ios/Pods/ 
+frontend/ios/Podfile.lock 
+frontend/ios/.symlinks/ 
+frontend/ios/Flutter/App.framework 
+frontend/ios/Flutter/engine 
+frontend/ios/Flutter/flutter_assets 
+frontend/ios/Flutter/.last_build_id 
 
-# 로그 파일
-backend/*.log
+# === IDE 설정 === 
+.vscode/ .idea/ # 
 
-# 데이터베이스 파일 (sqlite 같은 경우)
-backend/*.db
+=== OS별 임시 파일 === 
+Thumbs.db 
+ehthumbs.db 
+Desktop.ini # 
 
-# firebase
-
-backend/greenday-firebase-credentials.json
-
-# Frontend (나중에 추가될 것)
-frontend/node_modules/
-frontend/.DS_Store
-frontend/build/
-frontend/
-
-# IDE 설정 파일
-.idea/
-.vscode/
+=== 기타 백업/임시 파일 === 
+*.bak 
+*.tmp 
+*.swp
