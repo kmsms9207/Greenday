@@ -14,7 +14,7 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-@router.post("/", response_model=schemas.Plant, status_code=status.HTTP_21_CREATED)
+@router.post("/", response_model=schemas.Plant, status_code=status.HTTP_201_CREATED)
 def create_plant_for_user(
     plant_create: schemas.PlantCreate,
     current_user: models.User = Depends(get_current_user),
