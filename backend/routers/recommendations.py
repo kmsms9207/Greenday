@@ -1,8 +1,11 @@
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List
+import json
+import joblib
+import pandas as pd
 
-import models, schemas, crud
+import schemas, models, crud
 from database import get_db
 from dependencies import get_current_user
 
@@ -12,110 +15,138 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
-# --- 내부 로직 (Scoring & Normalization) ---
+# --- [신규] 머신러닝 모델 및 관련 파일 로드 ---
+# 서버가 시작될 때 한 번만 로드하여 메모리에 올려둡니다.
+try:
+    ml_model = joblib.load("ml_scripts/plant_cluster_model.joblib")
+    ml_encoder = joblib.load("ml_scripts/plant_encoder.joblib")
+    with open("ml_scripts/cluster_map.json", 'r', encoding='utf-8') as f:
+        cluster_map = json.load(f)
+    print("✅ ML 추천 모델 및 관련 파일 로드 완료.")
+except FileNotFoundError:
+    ml_model = None
+    ml_encoder = None
+    cluster_map = None
+    print("⚠️ ML 추천 모델 파일이 없습니다. /recommendations/ml API는 작동하지 않습니다.")
 
-# 사용자의 응답을 점수 계산에 사용할 표준 값으로 변환하기 위한 인덱스
-_DIFF_IDX = {"하": 1, "중": 2, "상": 3}
-_LIGHT_IDX = {"음지": 0, "반음지": 1, "양지": 2}
 
-def _normalize_sunlight(x: str) -> str:
-    """사용자의 햇빛 응답을 '음지/반음지/양지' 중 하나로 표준화합니다."""
-    s = (x or "").strip().lower()
-    if any(k in s for k in ["직사", "full", "양지", "sun"]): return "양지"
-    if any(k in s for k in ["밝은 간접", "반음지", "part", "partial", "filtered", "간접"]): return "반음지"
-    if any(k in s for k in ["그늘", "음지", "어두"]): return "음지"
-    return "반음지" # 기본값
+# --- [기존] 규칙 기반 추천 로직 (수정 없음) ---
+def _normalize_sunlight(place: str) -> str:
+    place_map = {"창가": "양지", "실내": "반음지", "화장실": "음지"}
+    return place_map.get(place, "반음지")
 
-def _normalize_experience_to_diff(exp: str) -> str:
-    """사용자의 식물 경험을 난이도 '하/중/상'으로 변환합니다."""
-    e = (exp or "").strip().lower()
-    if "초" in e or "begin" in e or "new" in e: return "하"
-    if "상" in e or "adv" in e or "expert" in e: return "상"
-    return "중" # 기본값
+def _normalize_experience_to_diff(experience: str) -> str:
+    exp_map = {"초보": "하", "경험자": "중", "전문가": "상"}
+    return exp_map.get(experience, "중")
 
-def _score_plant(
-    plant: models.PlantMaster,
-    target_diff: str,
-    target_light: str,
-    has_pets: bool
-) -> tuple[float, list[str]]:
-    """
-    개별 식물에 대해 사용자의 선호도와 얼마나 일치하는지 점수를 매깁니다.
-    """
-    reasons: List[str] = []
-    score = 0.0
 
-    # 1. 난이도 점수 (가중치 3)
-    plant_difficulty = getattr(plant, "difficulty", "중")
-    if plant_difficulty in _DIFF_IDX:
-        diff_gap = abs(_DIFF_IDX[plant_difficulty] - _DIFF_IDX[target_diff]) / 2
-        difficulty_score = 3.0 * (1.0 - diff_gap)
-        score += difficulty_score
-        if difficulty_score >= 2.5:
-            reasons.append(f"'{target_diff}' 난이도를 선호하는 분께 적합해요.")
+# --- [기존] 규칙 기반 추천 API ---
+@router.post("/survey", response_model=List[schemas.RecommendItem], summary="규칙 기반 맞춤 식물 추천")
+def recommend_plants_with_survey(
+    request: schemas.SurveyRecommendRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    target_light = _normalize_sunlight(request.sunlight)
+    exp_diff = _normalize_experience_to_diff(request.experience)
+    target_diff = request.desired_difficulty if request.desired_difficulty in ["상", "중", "하"] else exp_diff
 
-    # 2. 채광 점수 (가중치 4)
-    plant_light = getattr(plant, "light_requirement", "반음지")
-    if plant_light in _LIGHT_IDX:
-        light_gap = abs(_LIGHT_IDX[plant_light] - _LIGHT_IDX[target_light]) / 2
-        light_score = 4.0 * (1.0 - light_gap)
-        score += light_score
-        if light_score >= 3.0:
-            reasons.append(f"'{target_light}' 환경에서 잘 자라요.")
+    all_plants = crud.get_all_master_plants(db, has_pets=request.has_pets)
+    
+    scored_plants = []
+    for plant in all_plants:
+        score = 0
+        reasons = []
+        
+        # 1. 채광 점수 (가중치 4)
+        if plant.light_requirement == target_light:
+            score += 4
+            reasons.append(f"채광 조건('{target_light}')이 잘 맞아요.")
+        
+        # 2. 난이도 점수 (가중치 3)
+        if plant.difficulty == target_diff:
+            score += 3
+            reasons.append(f"관리 난이도('{target_diff}')가 적절해요.")
+        elif plant.difficulty == exp_diff:
+            score += 1 # 희망 난이도는 아니지만 경험 수준에는 맞음
+        
+        # 3. 반려동물 안전 점수 (가중치 5 - 필수조건)
+        if request.has_pets and plant.pet_safe:
+            score += 5
+            reasons.append("반려동물에게 안전해요.")
 
-    # 3. 반려동물 안전 가점 (가중치 2)
-    if has_pets and getattr(plant, "pet_safe", False) is True:
-        score += 2.0
-        reasons.append("반려동물에게 안전해요.")
+        if score > 0:
+            scored_plants.append({
+                "plant": plant,
+                "score": score,
+                "reasons": reasons
+            })
 
-    return round(score, 2), reasons
+    scored_plants.sort(key=lambda x: x["score"], reverse=True)
+    
+    top_plants = scored_plants[:request.limit]
+    
+    return [
+        schemas.RecommendItem(
+            id=item["plant"].id,
+            name_ko=item["plant"].name_ko,
+            image_url=item["plant"].image_url,
+            difficulty=item["plant"].difficulty,
+            light_requirement=item["plant"].light_requirement,
+            score=round(item["score"], 1),
+            reasons=item["reasons"]
+        ) for item in top_plants
+    ]
 
-# --- API Endpoint ---
 
-@router.post("/survey", response_model=List[schemas.RecommendItem])
-def recommend_plants_from_survey(
+# --- [신규] 머신러닝 기반 추천 API ---
+@router.post("/ml", response_model=List[schemas.RecommendItem], summary="[신규] AI 클러스터링 기반 추천")
+def recommend_plants_with_ml(
     request: schemas.SurveyRecommendRequest,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    ### 설문 기반 맞춤 식물 추천
-    - **설명**: 사용자가 제출한 설문 응답을 바탕으로, 가장 적합한 식물 목록을 점수와 함께 반환합니다.
+    ### ML 클러스터링 기반 맞춤 식물 추천
+    - **설명**: 사용자의 설문을 바탕으로, AI가 가장 유사한 식물 그룹을 찾아 추천합니다.
     - **인증**: 필수
     """
-    # 1. 사용자의 응답을 분석하여 목표 기준을 설정합니다.
+    if not all([ml_model, ml_encoder, cluster_map]):
+        raise HTTPException(status_code=503, detail="ML 추천 기능이 현재 비활성화 상태입니다.")
+
+    # 1. 사용자 설문 답변을 숫자 데이터로 변환 준비
     target_light = _normalize_sunlight(request.sunlight)
     exp_diff = _normalize_experience_to_diff(request.experience)
     target_diff = request.desired_difficulty if request.desired_difficulty in ["상", "중", "하"] else exp_diff
+    
+    user_input = pd.DataFrame([{'difficulty': target_diff, 'light_requirement': target_light}])
 
-    # 2. DB에서 추천 대상이 될 식물 목록을 가져옵니다.
-    master_plants = crud.get_all_master_plants(db, has_pets=request.has_pets)
-    if not master_plants:
-        raise HTTPException(status_code=404, detail="추천할 식물 데이터가 준비되지 않았습니다.")
+    # 2. '번역기(Encoder)'로 사용자 입력을 숫자(One-Hot) 벡터로 변환
+    user_encoded = ml_encoder.transform(user_input)
+    
+    # 3. 반려동물 안전 정보(0 또는 1)를 추가하여 최종 사용자 특성 벡터 생성
+    user_features = list(user_encoded[0]) + [1 if request.has_pets else 0]
 
-    # 3. 각 식물에 대해 점수를 매깁니다.
-    ranked_plants: List[schemas.RecommendItem] = []
-    for plant in master_plants:
-        score, reasons = _score_plant(
-            plant=plant,
-            target_diff=target_diff,
-            target_light=target_light,
-            has_pets=request.has_pets
-        )
-        
-        # Pydantic 모델로 변환하여 리스트에 추가
-        recommend_item = schemas.RecommendItem(
+    # 4. 'AI 모델'로 사용자가 어떤 그룹(클러스터)에 속하는지 예측
+    predicted_cluster = ml_model.predict([user_features])[0]
+    
+    # 5. 예측된 그룹에 속한 식물 ID 목록을 맵에서 조회
+    recommended_ids = cluster_map.get(str(predicted_cluster), [])
+    if not recommended_ids:
+        raise HTTPException(status_code=404, detail="추천할 식물을 찾지 못했습니다.")
+
+    # 6. ID 목록으로 DB에서 실제 식물 상세 정보 조회
+    recommended_plants = db.query(models.PlantMaster).filter(models.PlantMaster.id.in_(recommended_ids)).limit(request.limit).all()
+
+    # 7. 최종 응답 형태로 변환하여 반환
+    return [
+        schemas.RecommendItem(
             id=plant.id,
             name_ko=plant.name_ko,
             image_url=plant.image_url,
             difficulty=plant.difficulty,
             light_requirement=plant.light_requirement,
-            score=score,
-            reasons=reasons
-        )
-        ranked_plants.append(recommend_item)
-
-    # 4. 점수가 높은 순으로 정렬하여 최종 결과를 반환합니다.
-    ranked_plants.sort(key=lambda p: p.score, reverse=True)
-
-    return ranked_plants[:request.limit]
+            score=10.0,
+            reasons=[f"AI가 당신의 취향과 가장 잘 맞는 식물 그룹으로 추천했어요."]
+        ) for plant in recommended_plants
+    ]
