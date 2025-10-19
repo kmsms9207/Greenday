@@ -4,7 +4,7 @@ import 'plant.dart';
 
 // 1. URL을 한 곳에서 관리하여 변경이 쉽도록 baseUrl을 만듭니다.
 // TODO: 이 URL을 백엔드 팀이 제공하는 최신 ngrok 주소로 항상 업데이트해야 합니다.
-const String baseUrl = "https://7b2e1bfc4d32.ngrok-free.app";
+const String baseUrl = "https://117b8ecfdace.ngrok-free.app";
 
 // 백과사전 식물 목록 전체를 가져오는 함수
 Future<List<Plant>> fetchPlantList() async {
@@ -42,13 +42,19 @@ Future<Plant> fetchPlantDetail(int id) async {
 // 식물 종류를 검색하는 함수 (사용자 코드 기반)
 Future<List<String>> fetchPlantSpecies(String query) async {
   final response = await http.get(
-    Uri.parse('$baseUrl/encyclopedia?search=$query'),
+    Uri.parse('$baseUrl/encyclopedia'),
   );
 
   if (response.statusCode == 200) {
     final String responseBody = utf8.decode(response.bodyBytes);
     final List<dynamic> jsonList = jsonDecode(responseBody);
-    return jsonList.map((json) => json['name'].toString()).toList();
+    final List<String> allNames =
+        jsonList.map((json) => json['name_ko'].toString()).toList();
+
+    // 입력값에 맞는 이름만 필터링
+    return allNames
+        .where((name) => name.toLowerCase().contains(query.toLowerCase()))
+        .toList();
   } else {
     throw Exception('API 호출 실패: ${response.statusCode}');
   }

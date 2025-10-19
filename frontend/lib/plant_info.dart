@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'model/plant.dart';
 
 class PlantInfoScreen extends StatelessWidget {
-  const PlantInfoScreen({super.key});
+  final Plant plant;
+  const PlantInfoScreen({super.key, required this.plant});
 
   @override
   Widget build(BuildContext context) {
@@ -33,16 +35,17 @@ class PlantInfoScreen extends StatelessWidget {
           children: [
             // 식물 별명 + 식물 종
             Center(
-              child: _centerInfoTile("식물별명", "식물종"),
+              child: _centerInfoTile(
+                plant.nameKo,            // 식물 별명
+                plant.species,           // 식물 종
+                imageUrl: plant.imageUrl, // 사진 경로 (없으면 기본 카메라 아이콘)
+              ),
             ),
             const SizedBox(height: 50),
               Column(
                 children: [
-                  _leftInfoTile("햇빛", " "),
-                  _leftInfoTile("물주기", " "),
-                  _leftInfoTile("온도", " "),
-                  _leftInfoTile("습도", " "),
-                  _leftInfoTile("화분 크기", " "),
+                  _leftInfoTile("햇빛", plant.lightRequirement.isNotEmpty ? plant.lightRequirement : "정보 없음"),
+                _leftInfoTile("물주기", plant.wateringType.isNotEmpty ? plant.wateringType : "정보 없음"),
                 ],
               ),
             ],
@@ -73,7 +76,7 @@ class PlantInfoScreen extends StatelessWidget {
     }
 
   // 가운데 정렬 위젯
-  Widget _centerInfoTile(String name, String species, {String? imagePath}) {
+  Widget _centerInfoTile(String name, String species, {String? imageUrl}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -83,14 +86,14 @@ class PlantInfoScreen extends StatelessWidget {
           height: 120,
           decoration: BoxDecoration(
             color: Colors.grey[300], // 기본 배경색 (회색)
-            image: imagePath != null
+            image: imageUrl != null && imageUrl.isNotEmpty
                 ? DecorationImage(
-                    image: AssetImage(imagePath),
+                    image: NetworkImage(imageUrl), // 서버 이미지
                     fit: BoxFit.cover,
                   )
-                : null, // imagePath가 없으면 빈 네모
+                : null, // imageUrl가 없으면 빈 네모
           ),
-          child: imagePath == null
+          child: (imageUrl == null || imageUrl.isEmpty)
               ? const Icon(Icons.camera_alt, size: 40, color: Colors.white)
               : null, // 사진 없으면 카메라 아이콘
         ),
