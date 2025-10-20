@@ -29,6 +29,9 @@ class MainApp extends StatelessWidget {
           labelStyle: TextStyle(color: Colors.black),
         ),
       ),
+      routes: {
+        '/login': (context) => const LoginScreen()
+      },
       // 2. 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 정확히 지정합니다.
       home: const LoginScreen(),
     );

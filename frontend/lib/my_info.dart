@@ -25,7 +25,8 @@ class MyInfoScreen extends StatelessWidget {
             const SizedBox(height: 48),
             ElevatedButton(
               onPressed: () {
-                // TODO: 로그아웃 기능 구현
+                // 로그인 화면으로 이동하고 이전 페이지들을 모두 제거
+                Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
               },
               child: const Text("로그아웃"),
             ),
