@@ -4,6 +4,7 @@ import 'my_info.dart';
 import 'notification.dart';
 import 'chatbot.dart';
 import 'encyclopedia_list.dart';
+import 'plant_diary.dart';
 
 class MainScreen extends StatefulWidget {
   // 로그인 화면에서 사용자 이름을 전달받기 위한 변수
@@ -26,7 +27,7 @@ class _MainScreenState extends State<MainScreen> {
     // 위젯이 생성될 때, 전달받은 userName으로 화면 목록을 구성
     _widgetOptions = <Widget>[
       HomePage(userName: widget.userName), // HomePage에 userName 전달
-      const Text('성장 일지 페이지'),
+      const PlantDiaryScreen(),
       const MyPlantScreen(),
       // 1. MyInfoScreen에도 userName을 전달하도록 수정합니다.
       MyInfoScreen(userName: widget.userName),
