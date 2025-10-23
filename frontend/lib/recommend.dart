@@ -1,0 +1,195 @@
+import 'package:flutter/material.dart';
+
+class RecommendScreen extends StatefulWidget {
+  const RecommendScreen({super.key});
+
+  @override
+  State<RecommendScreen> createState() => _RecommendScreenState();
+}
+
+class _RecommendScreenState extends State<RecommendScreen> {
+  int _currentStep = 1; 
+  final Map<String, dynamic> _answers = {
+    "place": null,
+    "experience": null,
+    "has_pets": null,
+  };
+
+  void _nextStep() {
+    setState(() {
+      _currentStep++;
+    });
+  }
+
+  void _prevStep() {
+    if (_currentStep > 1) {
+      setState(() {
+        _currentStep--;
+      });
+    } else {
+      Navigator.of(context).pop(); 
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        backgroundColor: Colors.grey[100],
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: _prevStep,
+        ),
+      ),
+      body: _buildStepContent(),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (_currentStep) {
+      case 1:
+        return _buildQuestion1();
+      case 2:
+        return _buildQuestion2();
+      case 3:
+        return _buildQuestion3();
+      case 4:
+        return _buildLoadingScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // 첫 번째 질문: 장소
+  Widget _buildQuestion1() {
+    return _buildQuestion(
+      title: "어디서 식물을 키우실 건가요?",
+      options: [
+        _optionTile(Icons.window, "창가", "window"),
+        _optionTile(Icons.home, "실내", "indoor"),
+        _optionTile(Icons.shower, "화장실", "bathroom"),
+      ],
+    );
+  }
+
+  // 두 번째 질문: 경험
+  Widget _buildQuestion2() {
+    return _buildQuestion(
+      title: "식물 관리 경험은 어느 정도인가요?",
+      options: [
+        _optionTile(Icons.emoji_people, "초보", "beginner"),
+        _optionTile(Icons.spa, "경험자", "intermediate"),
+        _optionTile(Icons.eco, "전문가", "expert"),
+      ],
+    );
+  }
+
+  // 세 번째 질문: 반려동물
+  Widget _buildQuestion3() {
+    return _buildQuestion(
+      title: "반려동물과 함께 지내시나요?",
+      options: [
+        _optionTile(Icons.pets, "예", true),
+        _optionTile(Icons.close, "아니오", false),
+      ],
+    );
+  }
+
+  // 질문 공통 위젯 
+  Widget _buildQuestion({required String title, required List<Widget> options}) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: double.infinity, 
+            child: Card(
+              margin: EdgeInsets.zero, 
+              color: const Color.fromARGB(255, 144, 167, 144),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(15),
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 20, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 50),
+          ...options,
+        ],
+      ),
+    );
+  }
+
+  // 옵션 카드
+  Widget _optionTile(IconData icon, String label, dynamic value) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (_currentStep == 1) _answers["place"] = value;
+          if (_currentStep == 2) _answers["experience"] = value;
+          if (_currentStep == 3) _answers["has_pets"] = value;
+
+          if (_currentStep < 4) _nextStep();
+          if (_currentStep == 4) _startLoading();
+        });
+      },
+      child: SizedBox(
+        width: double.infinity, 
+        child: Card(
+          color: Colors.grey[300],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          margin: const EdgeInsets.only(bottom: 15),
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Row(
+              children: [
+                Icon(icon, size: 28, color: Colors.black54),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 18, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+        ),
+      )
+    );
+  }
+
+  // 로딩 화면
+  Widget _buildLoadingScreen() {
+    _startLoading(); 
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Color(0xFFA4B6A4)),
+          SizedBox(height: 40),
+          Text(
+            "AI가 당신에게 맞는 식물을 찾고 있어요...",
+            style: TextStyle(fontSize: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startLoading() async {
+    await Future.delayed(const Duration(seconds: 2)); // 서버 요청 대기 시간 시뮬레이션
+    // TODO: 실제 서버 API 호출 후 결과 화면으로 이동
+    print("설문 결과: $_answers");
+  }
+}

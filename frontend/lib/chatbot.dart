@@ -84,14 +84,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () {
-              // TODO: 메뉴 버튼 기능 구현
-            },
-          ),
-        ],
       ),
       body: Column(
         children: [
