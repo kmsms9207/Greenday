@@ -5,6 +5,7 @@ import 'notification.dart';
 import 'chatbot.dart';
 import 'encyclopedia_list.dart';
 import 'plant_diary.dart';
+import 'recommend.dart';
 
 class MainScreen extends StatefulWidget {
   // 로그인 화면에서 사용자 이름을 전달받기 위한 변수
@@ -200,7 +201,12 @@ class HomePage extends StatelessWidget {
               title: "반려식물 추천",
               buttonText: "반려 식물 추천 받기",
               onPressed: () {
-                // TODO: 반려식물 추천 기능 구현
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RecommendScreen(),
+                  ),
+                );
               },
             ),
           ],
