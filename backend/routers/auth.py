@@ -7,6 +7,9 @@ import crud, schemas, models, database
 from core import security
 from core.config import settings
 
+import random  
+import string
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # "/auth/login" 주소에서 토큰을 가져오겠다고 FastAPI에게 알려줌
@@ -24,17 +27,25 @@ conf = ConnectionConfig(
     MAIL_SSL_TLS = settings.MAIL_SSL_TLS,
     USE_CREDENTIALS = True
 )
-
-async def send_verification_email(email: str, token: str):
+async def send_verification_code_email(email: str, code: str):
     html = f"""<p>안녕하세요! Green Day에 오신 것을 환영합니다.</p>
-               <p>계정 인증을 완료하려면 아래 버튼을 클릭해주세요.</p>
-               <a href="http://localhost:3000/verify-email?token={token}" 
-                  style="display:inline-block; padding:10px 20px; color:white; background-color:#28a745; text-decoration:none; border-radius:5px;">
-                  이메일 인증하기
-               </a>"""
-    message = MessageSchema(subject="[Green Day] 계정 인증을 완료해주세요.", recipients=[email], body=html, subtype="html")
+             <p>계정 인증을 완료하려면 아래 인증번호를 앱에 입력해주세요.</p>
+             <p style="font-size: 24px; font-weight: bold; color: #28a745;">{code}</p>
+             <p>이 인증번호는 10분간 유효합니다.</p>"""
+    message = MessageSchema(subject="[Green Day] 계정 인증번호 안내", recipients=[email], body=html, subtype="html")
     fm = FastMail(conf)
     await fm.send_message(message)
+
+#async def send_verification_email(email: str, token: str):
+#    html = f"""<p>안녕하세요! Green Day에 오신 것을 환영합니다.</p>
+#               <p>계정 인증을 완료하려면 아래 버튼을 클릭해주세요.</p>
+#               <a href="http://localhost:3000/verify-email?token={token}" 
+#                  style="display:inline-block; padding:10px 20px; color:white; background-color:#28a745; text-decoration:none; border-radius:5px;">
+#                  이메일 인증하기
+#               </a>"""
+#    message = MessageSchema(subject="[Green Day] 계정 인증을 완료해주세요.", recipients=[email], body=html, subtype="html")
+#    fm = FastMail(conf)
+#    await fm.send_message(message)
 
 # --- 의존성 함수 (Dependency) ---
 # 이 함수는 토큰을 검증하고, 유효하다면 현재 로그인된 사용자 정보를 반환합니다.
@@ -62,25 +73,39 @@ async def signup(user: schemas.UserCreate, background_tasks: BackgroundTasks, db
         raise HTTPException(status_code=409, detail="이미 사용 중인 사용자 이름입니다.")
     
     created_user = crud.create_user(db=db, user=user)
-    token = security.create_verification_token(email=created_user.email)
-    background_tasks.add_task(send_verification_email, created_user.email, token)
     
-    return {"message": "회원가입이 완료되었습니다. 이메일을 확인하여 계정을 활성화해주세요.", "userId": created_user.id}
+    # --- ⬇️ 토큰 생성 대신 인증번호 생성 및 저장 로직으로 변경 ⬇️ ---
+    verification_code = "".join(random.choices(string.digits, k=6)) # 6자리 숫자 코드 생성
+    crud.set_verification_code(db=db, user_id=created_user.id, code=verification_code) # DB에 코드 저장
+    
+    # 이메일 발송 함수 호출 (변경된 함수 이름 사용)
+    background_tasks.add_task(send_verification_code_email, created_user.email, verification_code)
+    # --- ⬆️ 변경 완료 ⬆️ ---
+    
+    return {"message": "회원가입이 완료되었습니다. 이메일로 발송된 인증번호를 확인해주세요.", "userId": created_user.id}
 
-@router.post("/verify-email")
-def verify_email(request: schemas.EmailVerification, db: Session = Depends(database.get_db)):
-    email = security.verify_token(request.token)
-    if not email:
-        raise HTTPException(status_code=400, detail="유효하지 않거나 만료된 토큰입니다.")
+# 인증번호 검증 API
+@router.post("/verify-code", status_code=status.HTTP_200_OK)
+def verify_signup_code(request: schemas.VerifyCodeRequest, db: Session = Depends(database.get_db)):
+    """회원가입 시 이메일로 받은 인증번호를 검증합니다."""
     
-    user = crud.get_user_by_email(db, email=email)
-    if not user:
+    # 1. crud 함수를 이용해 코드 유효성 검증
+    is_valid = crud.verify_user_code(db, email=request.email, code=request.code)
+    
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="인증번호가 유효하지 않거나 만료되었습니다."
+        )
+
+    # 2. 코드가 유효하면 사용자 계정 활성화 (is_verified = True) 및 코드 초기화
+    activated_user = crud.activate_user(db, email=request.email)
+    
+    if not activated_user:
+        # 이론상 발생하기 어렵지만, 혹시 모를 경우 처리
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
-    if user.is_verified:
-        raise HTTPException(status_code=400, detail="이미 인증된 계정입니다.")
-        
-    crud.verify_user_email(db, email)
-    return {"message": "이메일 인증이 완료되었습니다. 이제 로그인할 수 있습니다."}
+
+    return {"message": "이메일 인증이 성공적으로 완료되었습니다. 이제 로그인할 수 있습니다."}
 
 @router.post("/login")
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
@@ -177,3 +202,21 @@ def update_push_token(
         token=token_data.push_token
     )
     return
+
+# ⭐️ 회원 탈퇴
+@router.delete("/users/me", response_model=schemas.UserDeleteResponse)
+def delete_current_user(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """
+    ### 회원 탈퇴 (로그인 필요)
+    - **설명**: 현재 로그인된 사용자의 계정을 삭제합니다.
+    - **경고**: 이 작업은 되돌릴 수 없으며, 모든 식물 및 진단 기록이 함께 삭제됩니다.
+    """
+    deleted_user = crud.delete_user(db=db, user_id=current_user.id)
+    if not deleted_user:
+        # 인증된 사용자이므로 이론상 이 오류는 발생하지 않아야 함
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"message": "회원 탈퇴가 성공적으로 처리되었습니다.", "deleted_email": deleted_user.email}

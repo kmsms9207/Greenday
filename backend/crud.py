@@ -2,6 +2,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
 import models, schemas
 from core.security import get_password_hash
+from datetime import datetime, timedelta, timezone
 
 # --- User CRUD ---
 
@@ -40,6 +41,76 @@ def update_user_password(db: Session, email: str, new_password: str):
         db.commit()
         db.refresh(user)
     return user
+
+def set_verification_code(db: Session, user_id: int, code: str, expires_in_minutes: int = 10) -> Optional[models.User]:
+    """사용자에게 인증번호와 만료 시간을 설정합니다."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        user.verification_code = code
+        # UTC 기준으로 만료 시간 계산 (DB 타임존 설정에 따라 조정 필요할 수 있음)
+        user.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
+        db.commit()
+        db.refresh(user)
+        return user
+    return None
+
+def clear_verification_code(db: Session, user_id: int) -> Optional[models.User]:
+    """사용자의 인증번호 정보를 초기화합니다."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        user.verification_code = None
+        user.verification_expires_at = None
+        db.commit()
+        db.refresh(user)
+        return user
+    return None
+
+def delete_user(db: Session, user_id: int) -> Optional[models.User]:
+    """지정된 ID의 사용자를 DB에서 삭제합니다."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        db.delete(user)
+        db.commit()
+        return user
+    return None
+
+def verify_user_code(db: Session, email: str, code: str) -> bool:
+    """이메일과 인증번호가 유효한지 확인합니다."""
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        return False # 사용자가 없음
+    if not user.verification_code or not user.verification_expires_at:
+        return False # 코드가 설정되지 않았거나 만료 시간이 없음
+
+    # 현재 시간 (UTC)과 만료 시간 비교
+    now_utc = datetime.now(timezone.utc)
+    
+    # DB에 저장된 시간의 타임존 정보 확인 필요
+    # 만약 DB 시간이 naive(타임존 정보 없음) 하다면, UTC로 가정하고 비교
+    expires_at = user.verification_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc) # UTC로 가정
+
+    if now_utc > expires_at:
+        return False # 코드 만료
+
+    if user.verification_code != code:
+        return False # 코드 불일치
+
+    # 모든 검증 통과
+    return True
+
+def activate_user(db: Session, email: str) -> Optional[models.User]:
+    """사용자 계정을 활성화하고 인증 코드를 초기화합니다."""
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user:
+        user.is_verified = True
+        user.verification_code = None
+        user.verification_expires_at = None
+        db.commit()
+        db.refresh(user)
+        return user
+    return None
 
 # --- Plant CRUD ---
 

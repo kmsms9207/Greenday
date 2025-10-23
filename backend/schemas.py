@@ -153,3 +153,16 @@ class ChatSendResponse(BaseModel):
 # --- Push Notification Schemas ---
 class PushTokenUpdateRequest(BaseModel):
     push_token: str
+
+# --- User Account Schemas ---
+class UserDeleteResponse(BaseModel):
+    message: str
+    deleted_email: str
+
+class VerifyCodeRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+class UserDeleteResponse(BaseModel):
+    message: str
+    deleted_email: str

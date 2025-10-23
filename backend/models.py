@@ -21,6 +21,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
     is_verified = Column(Boolean, default=False)
+    verification_code = Column(String(6), nullable=True) # 6자리 인증번호 저장
+    verification_expires_at = Column(DateTime(timezone=True), nullable=True) # 인증번호 만료 시간
     push_token = Column(String(255), nullable=True, unique=True)
     plants = relationship("Plant", back_populates="owner", cascade="all, delete-orphan")
     image_assets = relationship("ImageAsset", back_populates="user")
@@ -133,7 +135,7 @@ class Diagnosis(Base):
 class ChatThread(Base):
     __tablename__ = "chat_threads"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(120), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
