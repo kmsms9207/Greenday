@@ -1,16 +1,35 @@
 import 'package:flutter/material.dart';
-import 'login.dart'; // 1. 로그인 화면을 import 합니다.
-import 'main_screen.dart';
+import 'login.dart'; // 로그인 화면을 가져옵니다.
+import 'package:firebase_core/firebase_core.dart'; // Firebase Core 추가
+import 'firebase_options.dart'; // FlutterFire CLI가 생성한 설정 파일
+import 'firebase_messaging_service.dart'; // 1. 새로 만든 메시징 서비스를 import 합니다.
 
-// 앱의 유일한 시작점
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Firebase 초기화
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MainApp());
 }
 
-// 앱의 전체적인 틀과 설정을 담당
-class MainApp extends StatelessWidget {
+// 2. StatelessWidget을 StatefulWidget으로 변경합니다.
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+// 3. State 클래스를 추가합니다.
+class _MainAppState extends State<MainApp> {
+  // 4. FirebaseMessagingService 인스턴스를 생성합니다.
+  final FirebaseMessagingService _messagingService = FirebaseMessagingService();
+
+  @override
+  void initState() {
+    super.initState();
+    // 5. 위젯이 생성될 때 메시징 서비스 초기화 함수를 호출합니다.
+    _messagingService.initialize(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +49,15 @@ class MainApp extends StatelessWidget {
           labelStyle: TextStyle(color: Colors.black),
         ),
       ),
-      routes: {
-        '/login': (context) => const LoginScreen()
-      },
-      // 2. 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 정확히 지정합니다.
-      home: const MainScreen(userName: 'test'),
+      // 6. routes는 MaterialApp 최상위 레벨에서는 home과 함께 사용할 수 없으므로 제거하거나
+      //    별도의 라우팅 패키지(go_router 등) 설정으로 옮겨야 합니다.
+      //    여기서는 home을 사용하므로 routes는 제거합니다.
+      // routes: {
+      //   '/login': (context) => const LoginScreen()
+      // },
+      // 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 지정합니다.
+      // home 속성은 로그인 상태에 따라 분기 처리하는 로직으로 변경될 수 있습니다. (예: 스플래시 스크린)
+      home: const LoginScreen(),
     );
   }
 }

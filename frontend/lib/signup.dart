@@ -27,9 +27,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   );
   List<String> months = List.generate(12, (index) => (index + 1).toString());
   List<String> days = List.generate(31, (index) => (index + 1).toString());
-  bool isTermsAccepted = false,     // [필수] 이용약관 동의
-      isPrivacyAccepted = false,    // [필수] 개인정보 처리방침 동의
-      isMarketingAccepted = false;  // [선택] 마케팅 정보 수신 동의
+  bool isTermsAccepted =
+          false, // [필수] 이용약관 동의
+      isPrivacyAccepted =
+          false, // [필수] 개인정보 처리방침 동의
+      isMarketingAccepted = false; // [선택] 마케팅 정보 수신 동의
 
   // 모든 필수 필드가 채워졌는지 확인하는 변수
   bool get isFormComplete =>
@@ -42,7 +44,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       selectedDay != null &&
       isTermsAccepted &&
       isPrivacyAccepted;
-  
+
   // 회원가입 버튼 색상 실시간 반영
   // initState에서 컨트롤러에 리스너를 추가하여 입력 변경 감지
   @override
@@ -354,7 +356,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("모든 필수 항목을 입력해주세요."),
-                  duration: const Duration(seconds: 1)
+                  duration: Duration(seconds: 1),
                 ),
               );
               return;
@@ -365,7 +367,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("비밀번호가 일치하지 않습니다."),
-                  duration: const Duration(seconds: 1)
+                  duration: Duration(seconds: 1),
                 ),
               );
               return;
@@ -376,7 +378,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("필수 약관에 모두 동의해야 회원가입이 가능합니다."),
-                  duration: const Duration(seconds: 1)
+                  duration: Duration(seconds: 1),
                 ),
               );
               return;

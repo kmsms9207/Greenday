@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'signup.dart';
 import 'main_screen.dart'; // 메인 화면을 import 합니다.
+// import 'my_plant_screen.dart'; // 더 이상 사용하지 않으므로 삭제
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> attemptLogin() async {
     // 보내주신 코드의 최신 URL을 반영합니다.
-    const String apiUrl = "https://117b8ecfdace.ngrok-free.app/auth/login";
+    const String apiUrl = "https://2290d432738a.ngrok-free.app/auth/login";
 
     try {
       final response = await http.post(
@@ -38,6 +39,8 @@ class _LoginScreenState extends State<LoginScreen> {
         // TODO: 여기서 발급받은 accessToken을 안전한 곳에 저장해야 합니다.
 
         // 1. 사용자 이름 추출 (임시방편: 이메일에서 @ 앞부분 사용)
+        // 나중에는 서버 응답에서 실제 사용자 이름을 받아오거나,
+        // 토큰 저장 후 /users/me 같은 API를 호출하여 가져와야 합니다.
         final email = _usernameController.text;
         final userName = email.split('@').first;
 
@@ -45,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => MainScreen(userName: userName),
+            builder: (context) => MainScreen(userName: userName), // userName 전달
           ),
         );
       } else {
