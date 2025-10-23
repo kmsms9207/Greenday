@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert'; 
+import 'dart:convert';
 import 'model/api.dart';
 import 'model/plant.dart';
 
@@ -15,8 +15,8 @@ class PlantFormScreen extends StatefulWidget {
 }
 
 class _PlantFormScreenState extends State<PlantFormScreen> {
-  TextEditingController _nicknameController = TextEditingController();
-  TextEditingController _speciesController = TextEditingController();
+  final TextEditingController _nicknameController = TextEditingController();
+  final TextEditingController _speciesController = TextEditingController();
   List<String> _suggestions = []; // API에서 받아올 추천 목록
   String? _serverImageUrl;
   List<Plant> _allPlants = []; // 전체 식물 목록 저장
@@ -24,18 +24,20 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
   @override
   void initState() {
     super.initState();
-    fetchPlantList().then((plants) {
-      setState(() {
-        _allPlants = plants;
-      });
-    }).catchError((e) {
-      print('전체 식물 목록 불러오기 실패: $e');
-    });
+    fetchPlantList()
+        .then((plants) {
+          setState(() {
+            _allPlants = plants;
+          });
+        })
+        .catchError((e) {
+          print('전체 식물 목록 불러오기 실패: $e');
+        });
   }
 
   Future<void> savePlantToServer(Plant plant) async {
-    final url = Uri.parse('https://f9b21d7edc72.ngrok-free.app/plants');
-    
+    final url = Uri.parse('https://6860a10b6227.ngrok-free.app/plants');
+
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
@@ -61,9 +63,9 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     final species = _speciesController.text;
 
     if (nickname.isEmpty || species.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('식물의 별명과 종을 입력해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('식물의 별명과 종을 입력해주세요.')));
       return;
     }
 
@@ -84,15 +86,15 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
 
     try {
       await savePlantToServer(newPlant); // 서버 저장
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('식물이 서버에 저장되었습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('식물이 서버에 저장되었습니다.')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('서버 저장 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('서버 저장 실패: $e')));
     }
-    
+
     Navigator.pop(context, newPlant); // 이전 화면으로 돌아가기
   }
 
@@ -165,20 +167,21 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
                         ),
                       );
 
-                    setState(() {
-                      _serverImageUrl = matchedPlant.imageUrl; // 서버 이미지 URL 저장
-                    });
-                  } catch (e) {
-                    print('서버 이미지 불러오기 실패: $e');
-                  }
-                },
-              ),
-            ],
-          ),
-        ],
+                      setState(() {
+                        _serverImageUrl =
+                            matchedPlant.imageUrl; // 서버 이미지 URL 저장
+                      });
+                    } catch (e) {
+                      print('서버 이미지 불러오기 실패: $e');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-      
+
       bottomNavigationBar: SizedBox(
         width: double.infinity,
         height: 60, // 버튼 높이
@@ -224,7 +227,10 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
   }
 
   // 왼쪽 정렬 위젯
-  Widget inputCard({required TextEditingController controller, required String hint}) {
+  Widget inputCard({
+    required TextEditingController controller,
+    required String hint,
+  }) {
     return Card(
       color: const Color(0xFFF1F1F1),
       elevation: 0,
@@ -291,10 +297,10 @@ Widget inputCardWithSuggestions({
           height: 150,
           child: ListView(
             children: suggestions
-                .map((s) => ListTile(
-                      title: Text(s),
-                      onTap: () => onSuggestionTap(s),
-                    ))
+                .map(
+                  (s) =>
+                      ListTile(title: Text(s), onTap: () => onSuggestionTap(s)),
+                )
                 .toList(),
           ),
         ),

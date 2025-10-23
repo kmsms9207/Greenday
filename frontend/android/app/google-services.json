@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "31015337595",
+    "project_id": "green-day-2d59e",
+    "storage_bucket": "green-day-2d59e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:31015337595:android:cedd89018555fb579eecde",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjjFqaPrwKtzw6ChlYNtZeQhapsBEQO4w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
