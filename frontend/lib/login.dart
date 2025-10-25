@@ -17,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> attemptLogin() async {
     // 보내주신 코드의 최신 URL을 반영합니다.
-    const String apiUrl = "https://2290d432738a.ngrok-free.app/auth/login";
+    const String apiUrl = "https://54c80334e045.ngrok-free.app/auth/login";
 
     try {
       final response = await http.post(

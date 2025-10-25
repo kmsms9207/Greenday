@@ -5,10 +5,18 @@ import 'firebase_options.dart'; // FlutterFire CLI가 생성한 설정 파일
 import 'firebase_messaging_service.dart'; // 1. 새로 만든 메시징 서비스를 import 합니다.
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Firebase 초기화
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(const MainApp());
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    // Firebase 초기화
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    runApp(const MainApp());
+  } catch (e) {
+    // <--- 오류 발생 시 여기로!
+    // Firebase 핵심 초기화 실패 시 메시지 출력
+    print("!!!!! Firebase initialization failed: $e !!!!!");
+  } // <--- 끝
 }
 
 // 2. StatelessWidget을 StatefulWidget으로 변경합니다.
@@ -27,8 +35,15 @@ class _MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
-    // 5. 위젯이 생성될 때 메시징 서비스 초기화 함수를 호출합니다.
-    _messagingService.initialize(context);
+    try {
+      // <--- 시작
+      // 5. 위젯이 생성될 때 메시징 서비스 초기화 함수를 호출합니다.
+      _messagingService.initialize(context);
+    } catch (e) {
+      // <--- 오류 발생 시 여기로!
+      // 메시징 서비스 초기화 '호출' 자체에서 오류 발생 시 메시지 출력
+      print("!!!!! FirebaseMessagingService initialization failed: $e !!!!!");
+    } // <--- 끝
   }
 
   @override

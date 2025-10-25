@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
-import 'verify_email_screen.dart'; // 이메일 인증 화면 import
+import 'verify_code_screen.dart'; // 1. 인증번호 화면을 import 합니다.
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -45,7 +45,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       isTermsAccepted &&
       isPrivacyAccepted;
 
-  // 회원가입 버튼 색상 실시간 반영
   // initState에서 컨트롤러에 리스너를 추가하여 입력 변경 감지
   @override
   void initState() {
@@ -82,8 +81,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   // 회원가입 API를 호출하는 함수
   Future<void> attemptSignUp() async {
-    const String apiUrl =
-        "https://f9b21d7edc72.ngrok-free.app/auth/signup"; // 최신 URL로 가정
+    // 보내주신 코드의 최신 URL을 반영합니다.
+    const String apiUrl = "https://f9b21d7edc72.ngrok-free.app/auth/signup";
     if (_passwordController.text != _passwordCheckController.text) {
       ScaffoldMessenger.of(
         context,
@@ -107,12 +106,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       if (!mounted) return;
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print("회원가입 요청 성공! 인증 메일 발송됨.");
-        Navigator.push(
+        print("회원가입 요청 성공! 인증번호가 발송되었습니다.");
+
+        // 2. 회원가입 성공 후, 로그인 화면 대신 인증번호 입력 화면으로 이동합니다.
+        //    pushReplacement를 사용하여 뒤로가기 시 로그인 화면이 나오지 않도록 합니다.
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) =>
-                VerifyEmailScreen(email: _emailController.text),
+                VerifyCodeScreen(email: _emailController.text), // 이메일 전달
           ),
         );
       } else {
@@ -124,6 +126,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       }
     } catch (e) {
       print("요청 중 오류 발생: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("서버 연결 실패: $e")), // 네트워크 오류 등 표시
+      );
     }
   }
 
@@ -269,21 +274,83 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           isMarketingAccepted = value;
                         });
                       },
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: const VisualDensity(
+                        horizontal: -4,
+                        vertical: -3,
+                      ),
                     ),
-                    const Text("아래 약관에 모두 동의합니다."),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            bool allChecked =
+                                isTermsAccepted &&
+                                isPrivacyAccepted &&
+                                isMarketingAccepted;
+                            isTermsAccepted = !allChecked;
+                            isPrivacyAccepted = !allChecked;
+                            isMarketingAccepted = !allChecked;
+                          });
+                        },
+                        child: const Text(
+                          "아래 약관에 모두 동의합니다.",
+                          style: TextStyle(fontSize: 15),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 Row(
                   children: [
                     Checkbox(
                       value: isTermsAccepted,
-                      onChanged: (v) => setState(() => isTermsAccepted = v!),
+                      onChanged: (v) =>
+                          setState(() => isTermsAccepted = v ?? false),
                     ),
-                    const Text("[필수] 이용약관 동의"),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () => showTerms(context, 'terms.txt', '이용약관'),
-                      child: const Text("자세히"),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 14,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: "[필수] ",
+                                    style: TextStyle(
+                                      color: Color(0xFF486B48),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(text: "이용약관 동의 "),
+                                ],
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                showTerms(context, '이용약관.txt', '이용약관'),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(30, 20),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              "자세히",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -291,14 +358,55 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   children: [
                     Checkbox(
                       value: isPrivacyAccepted,
-                      onChanged: (v) => setState(() => isPrivacyAccepted = v!),
+                      onChanged: (v) =>
+                          setState(() => isPrivacyAccepted = v ?? false),
                     ),
-                    const Text("[필수] 개인정보 처리방침 동의"),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () =>
-                          showTerms(context, 'privacy.txt', '개인정보 처리방침'),
-                      child: const Text("자세히"),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 14,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: "[필수] ",
+                                    style: TextStyle(
+                                      color: Color(0xFF486B48),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(text: "개인정보 처리방침 동의 "),
+                                ],
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => showTerms(
+                              context,
+                              '개인정보_처리방침.txt',
+                              '개인정보 처리방침',
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(30, 20),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              "자세히",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -307,14 +415,54 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     Checkbox(
                       value: isMarketingAccepted,
                       onChanged: (v) =>
-                          setState(() => isMarketingAccepted = v!),
+                          setState(() => isMarketingAccepted = v ?? false),
                     ),
-                    const Text("[선택] 마케팅 정보 수신 동의"),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () =>
-                          showTerms(context, 'marketing.txt', '마케팅 정보 수신 동의'),
-                      child: const Text("자세히"),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 14,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: "[선택] ",
+                                    style: TextStyle(
+                                      color: Color(0xFF486B48),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  TextSpan(text: "마케팅 정보 수신 동의 "),
+                                ],
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => showTerms(
+                              context,
+                              '마케팅_동의.txt',
+                              '마케팅 정보 수신 동의',
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(30, 20),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              "자세히",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.grey,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -344,53 +492,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         width: double.infinity,
         height: 60,
         child: ElevatedButton(
-          onPressed: () {
-            // 필수 입력 체크
-            if (_emailController.text.isEmpty ||
-                _passwordController.text.isEmpty ||
-                _passwordCheckController.text.isEmpty ||
-                _nameController.text.isEmpty ||
-                selectedYear == null ||
-                selectedMonth == null ||
-                selectedDay == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("모든 필수 항목을 입력해주세요."),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-              return;
-            }
-
-            // 비밀번호 일치 확인
-            if (_passwordController.text != _passwordCheckController.text) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("비밀번호가 일치하지 않습니다."),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-              return;
-            }
-
-            // 필수 약관 체크
-            if (!isTermsAccepted || !isPrivacyAccepted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("필수 약관에 모두 동의해야 회원가입이 가능합니다."),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-              return;
-            }
-            attemptSignUp();
-          },
-
+          // 버튼 활성화/비활성화 로직은 isFormComplete getter가 처리
+          onPressed: isFormComplete ? attemptSignUp : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: isFormComplete
                 ? const Color(0xFF486B48)
                 : const Color(0xFFA4B6A4),
-            disabledBackgroundColor: const Color(0xFFA4B6A4),
+            disabledBackgroundColor: const Color(0xFFA4B6A4), // 비활성화 색상
             foregroundColor: Colors.white,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.zero,

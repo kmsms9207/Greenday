@@ -121,64 +121,67 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
           ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          children: [
-            // 식물 별명 + 식물 종
-            Center(child: _centerInfoTile()),
-            const SizedBox(height: 50),
-            Column(
-              children: [
-                inputCard(
-                  controller: _nicknameController,
-                  hint: "식물의 별명을 입력해 주세요.",
-                ),
-                inputCardWithSuggestions(
-                  controller: _speciesController,
-                  hint: "식물의 종을 입력해 주세요.",
-                  suggestions: _suggestions,
-                  onChanged: (value) async {
-                    if (value.isEmpty) {
-                      setState(() => _suggestions = []);
-                      return;
-                    }
-                    final suggestions = await fetchPlantSpecies(value);
-                    setState(() => _suggestions = suggestions);
-                  },
-                  onSuggestionTap: (s) {
-                    _speciesController.text = s;
-                    _suggestions = [];
+      // 1. SingleChildScrollView를 추가하여 화면 오버플로우를 방지합니다.
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            children: [
+              // 식물 별명 + 식물 종
+              Center(child: _centerInfoTile()),
+              const SizedBox(height: 50),
+              Column(
+                children: [
+                  inputCard(
+                    controller: _nicknameController,
+                    hint: "식물의 별명을 입력해 주세요.",
+                  ),
+                  inputCardWithSuggestions(
+                    controller: _speciesController,
+                    hint: "식물의 종을 입력해 주세요.",
+                    suggestions: _suggestions,
+                    onChanged: (value) async {
+                      if (value.isEmpty) {
+                        setState(() => _suggestions = []);
+                        return;
+                      }
+                      final suggestions = await fetchPlantSpecies(value);
+                      setState(() => _suggestions = suggestions);
+                    },
+                    onSuggestionTap: (s) {
+                      _speciesController.text = s;
+                      _suggestions = [];
 
-                    try {
-                      final matchedPlant = _allPlants.firstWhere(
-                        (p) => p.nameKo == s,
-                        orElse: () => Plant(
-                          id: 0,
-                          nameKo: '',
-                          species: '',
-                          imageUrl: '',
-                          description: '',
-                          difficulty: '',
-                          lightRequirement: '',
-                          wateringType: '',
-                          petSafe: false,
-                          tags: [],
-                        ),
-                      );
+                      try {
+                        final matchedPlant = _allPlants.firstWhere(
+                          (p) => p.nameKo == s,
+                          orElse: () => Plant(
+                            id: 0,
+                            nameKo: '',
+                            species: '',
+                            imageUrl: '',
+                            description: '',
+                            difficulty: '',
+                            lightRequirement: '',
+                            wateringType: '',
+                            petSafe: false,
+                            tags: [],
+                          ),
+                        );
 
-                      setState(() {
-                        _serverImageUrl =
-                            matchedPlant.imageUrl; // 서버 이미지 URL 저장
-                      });
-                    } catch (e) {
-                      print('서버 이미지 불러오기 실패: $e');
-                    }
-                  },
-                ),
-              ],
-            ),
-          ],
+                        setState(() {
+                          _serverImageUrl =
+                              matchedPlant.imageUrl; // 서버 이미지 URL 저장
+                        });
+                      } catch (e) {
+                        print('서버 이미지 불러오기 실패: $e');
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
 

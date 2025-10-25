@@ -57,10 +57,12 @@ class _MainScreenState extends State<MainScreen> {
       body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
+          // --- 이 부분이 수정되었습니다 ---
           BottomNavigationBarItem(
-            icon: Icon(Icons.forum_outlined),
-            label: '커뮤니티',
+            icon: Icon(Icons.home_outlined), // 아이콘을 집 모양으로 변경
+            label: '홈', // 라벨을 '홈'으로 변경
           ),
+          // --- 여기까지 ---
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today_outlined),
             label: '성장 일지',
@@ -160,7 +162,8 @@ class HomePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const EncyclopediaListScreen(), // 백과사전 화면
+                    builder: (context) =>
+                        const EncyclopediaListScreen(), // 백과사전 화면
                   ),
                 );
               },

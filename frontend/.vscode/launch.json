@@ -1,13 +1,11 @@
-
 {
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter",
+      "name": "Flutter", // <--- 가장 기본적인 실행 구성 이름
       "request": "launch",
       "type": "dart",
-      "program": "lib/main.dart"
-       
+      "program": "lib/main.dart" // 앱 시작 파일 지정
     }
   ]
 }
