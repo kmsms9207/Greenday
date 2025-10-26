@@ -40,13 +40,16 @@ def create_plant_for_user(
 @router.get("/", response_model=List[schemas.Plant])
 def read_plants_for_user(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     db_plants = crud.get_plants_by_owner(db=db, user_id=current_user.id)
-    
+
     results = []
     for plant in db_plants:
         plant_schema = schemas.Plant.model_validate(plant)
-        # plant.master_info가 로드되었으므로 안전하게 접근 가능
         if plant.master_info:
             plant_schema.master_image_url = plant.master_info.image_url
+            plant_schema.difficulty = plant.master_info.difficulty
+            plant_schema.light_requirement = plant.master_info.light_requirement
+            plant_schema.watering_type = plant.master_info.watering_type
+            plant_schema.pet_safe = plant.master_info.pet_safe
         results.append(plant_schema)
     return results
 
@@ -61,7 +64,13 @@ def read_plant_by_id(plant_id: int, current_user: models.User = Depends(get_curr
 
     result = schemas.Plant.model_validate(db_plant)
     if db_plant.master_info:
+        # --- ⬇️ master_info에서 상세 정보 가져와 채우기 ⬇️ ---
         result.master_image_url = db_plant.master_info.image_url
+        result.difficulty = db_plant.master_info.difficulty
+        result.light_requirement = db_plant.master_info.light_requirement
+        result.watering_type = db_plant.master_info.watering_type
+        result.pet_safe = db_plant.master_info.pet_safe
+        # --- ⬆️ 추가 완료 ⬆️ ---
     return result
 
 

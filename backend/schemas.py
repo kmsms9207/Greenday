@@ -32,21 +32,32 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 # --- Plant Schemas ---
+# [입력용] 사용자가 '내 식물'을 등록할 때 사용하는 스키마
+class PlantCreate(BaseModel):
+    name: str             # 사용자가 지어줄 애칭
+    plant_master_id: int  # 참조할 식물 도감(PlantMaster)의 ID
 
-class PlantBase(BaseModel):
-    name: str
-    
-
-class PlantCreate(PlantBase):
-    plant_master_id: int # 백과사전에서 선택한 식물의 고유 ID
-
-class Plant(PlantBase):
+# [출력용] API가 사용자에게 '내 식물' 정보를 보내줄 때 사용하는 스키마 (최종 수정)
+class Plant(BaseModel):
     id: int
-    owner_id: int
-    created_at: datetime
-    name: str
-    species: str # DB에는 학명이 저장되므로, 응답 시에는 포함됩니다.
+    name: str  # 사용자가 지어준 애칭
+    species: str # 공식 학명
+
+    # PlantMaster에서 가져온 대표 이미지 URL
     master_image_url: Optional[str] = None
+
+    # --- ⬇️ PlantMaster의 상세 정보 추가 ⬇️ ---
+    difficulty: Optional[str] = None
+    light_requirement: Optional[str] = None
+    watering_type: Optional[str] = None
+    pet_safe: Optional[bool] = None
+    # --- ⬆️ 추가 완료 ⬆️ ---
+
+    # 물주기 알림 기능에 필요한 정보도 함께 보내줍니다.
+    last_watered_at: Optional[datetime] = None
+    is_notification_enabled: bool
+    notification_time: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 # --- Recommendation Schemas ---

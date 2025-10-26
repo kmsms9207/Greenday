@@ -193,13 +193,13 @@ def get_all_master_plants(
     
     return query.offset(skip).limit(limit).all()
 
-def search_master_plants(db: Session, q: str, skip: int = 0, limit: int = 100):
-    """한국어 이름으로 PlantMaster 테이블에서 식물 검색"""
-    return db.query(models.PlantMaster)\
-             .filter(models.PlantMaster.name_ko.contains(q))\
-             .offset(skip)\
-             .limit(limit)\
-             .all()
+# def search_master_plants(db: Session, q: str, skip: int = 0, limit: int = 100):
+#     """한국어 이름으로 PlantMaster 테이블에서 식물 검색"""
+#     return db.query(models.PlantMaster)\
+#              .filter(models.PlantMaster.name_ko.contains(q))\
+#              .offset(skip)\
+#              .limit(limit)\
+#              .all()
 
 # ⭐️ (관리자용) PlantMaster 데이터 생성
 def create_master_plant(db: Session, plant: models.PlantMaster) -> models.PlantMaster:

@@ -23,8 +23,6 @@ class Settings(BaseSettings):
     CLOVA_API_KEY: str = ""        # 이전 APIGW 방식 Key
     CLOVA_REQUEST_ID: str = ""
 
-    ELASTICSEARCH_HOST: str = ""
-
 
     class Config:
         env_file = ".env"
