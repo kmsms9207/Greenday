@@ -4,9 +4,6 @@ import 'dart:convert';
 import 'model/api.dart';
 import 'model/plant.dart';
 
-// 임시 저장용 리스트 (앱 종료 시 초기화됨)
-List<Plant> myPlants = [];
-
 class PlantFormScreen extends StatefulWidget {
   const PlantFormScreen({super.key});
 
@@ -36,11 +33,13 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
   }
 
   Future<void> savePlantToServer(Plant plant) async {
-    final url = Uri.parse('https://6860a10b6227.ngrok-free.app/plants');
+    final url = Uri.parse('https://95a27dbf8715.ngrok-free.app/plants');
 
     final response = await http.post(
       url,
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer YOUR_ACCESS_TOKEN',},
       body: jsonEncode({
         'name': plant.nameKo,
         'species': plant.species,
@@ -70,7 +69,7 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     }
 
     final newPlant = Plant(
-      id: myPlants.length + 1,
+      id: 0,
       nameKo: nickname,
       species: species,
       imageUrl: _serverImageUrl ?? '', // 서버 이미지 URL 저장
@@ -81,8 +80,6 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
       petSafe: false,
       tags: [],
     );
-
-    myPlants.add(newPlant); // 로컬 저장
 
     try {
       await savePlantToServer(newPlant); // 서버 저장

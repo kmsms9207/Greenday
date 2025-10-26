@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'model/plant.dart';
 import 'plant_form.dart';
 import 'plant_info.dart';
-
-// 임시 저장용 리스트 (앱 종료 시 초기화됨)
-List<Plant> myPlants = [];
+import 'model/plant.dart';
+import 'model/api.dart';
 
 class MyPlantScreen extends StatefulWidget {
   const MyPlantScreen({super.key});
@@ -14,6 +12,26 @@ class MyPlantScreen extends StatefulWidget {
 }
 
 class _MyPlantScreenState extends State<MyPlantScreen> {
+  // 서버에서 가져온 식물 리스트
+  List<Plant> _plantsFromServer = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchMyPlantsFromServer();
+  }
+
+  // 서버에서 내 식물 가져오기
+  Future<void> fetchMyPlantsFromServer() async {
+    try {
+      final plants = await fetchMyPlants(); // api.dart에 구현된 함수 사용
+      setState(() {
+        _plantsFromServer = plants;
+      });
+    } catch (e) {
+      print('서버 식물 목록 가져오기 실패: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +48,6 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
         ),
         centerTitle: true,
       ),
-      // 화면 오버플로우를 방지하기 위해 스크롤 기능을 추가합니다.
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -43,38 +60,40 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
+                  // 첫 번째 식물 이미지
                   AspectRatio(
                     aspectRatio: 1,
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.grey[200],
                         borderRadius: BorderRadius.circular(15.0),
-                        image: myPlants.isNotEmpty && myPlants[0].imageUrl.isNotEmpty
+                        image: _plantsFromServer.isNotEmpty &&
+                                _plantsFromServer[0].imageUrl.isNotEmpty
                             ? DecorationImage(
-                                image: NetworkImage(myPlants[0].imageUrl),
+                                image: NetworkImage(_plantsFromServer[0].imageUrl),
                                 fit: BoxFit.cover,
                               )
                             : null,
                       ),
-                      child: myPlants.isEmpty || myPlants[0].imageUrl.isEmpty
+                      child: _plantsFromServer.isEmpty ||
+                              _plantsFromServer[0].imageUrl.isEmpty
                           ? const Icon(Icons.eco, size: 40, color: Colors.white)
                           : null,
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // 그리드뷰
                   GridView.builder(
-                    shrinkWrap: true, // GridView가 콘텐츠 크기만큼만 공간을 차지하도록 설정
-                    physics:
-                      const NeverScrollableScrollPhysics(), // GridView 자체 스크롤 비활성화
-                    gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                      ),
-                       itemCount: myPlants.length + 1, // +1: ‘+’ 버튼
-                        itemBuilder: (context, index) {
-                      // '+' 아이콘 버튼
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                    ),
+                    itemCount: _plantsFromServer.length + 1, // +1: 새 식물 버튼
+                    itemBuilder: (context, index) {
+                      // '+' 버튼
                       if (index == 0) {
                         return InkWell(
                           onTap: () async {
@@ -86,8 +105,8 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
                             );
                             if (newPlant != null && newPlant is Plant) {
                               setState(() {
-                                myPlants.insert(0, newPlant); // 새 식물을 맨 앞에 추가
-                              }); // 새 식물 추가 후 화면 갱신
+                                _plantsFromServer.insert(0, newPlant);
+                              });
                             }
                           },
                           borderRadius: BorderRadius.circular(10.0),
@@ -105,7 +124,7 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
                         );
                       }
 
-                      final plant = myPlants[index - 1]; // index 0은 + 버튼이므로 -1
+                      final plant = _plantsFromServer[index - 1];
                       return InkWell(
                         onTap: () {
                           Navigator.push(
@@ -122,7 +141,7 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
                             borderRadius: BorderRadius.circular(10.0),
                             image: plant.imageUrl.isNotEmpty
                                 ? DecorationImage(
-                                    image: NetworkImage(plant.imageUrl), // 서버 이미지
+                                    image: NetworkImage(plant.imageUrl),
                                     fit: BoxFit.cover,
                                   )
                                 : null,

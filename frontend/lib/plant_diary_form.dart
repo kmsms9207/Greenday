@@ -13,9 +13,20 @@ class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
   final TextEditingController _contentController = TextEditingController();
 
   void _savePlant() {
+    final nickname = _nicknameController.text.trim();
+    final title = _titleController.text.trim();
+
+    if (nickname.isEmpty || title.isEmpty) {
+      // 이름이나 제목이 비어있으면 경고
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이름과 제목을 입력해주세요.')),
+      );
+      return; // 추가하지 않고 종료
+    }
+
     final plantData = {
-      'nickname': _nicknameController.text,
-      'title': _titleController.text,
+      'nickname': nickname,
+      'title': title,
       'content': _contentController.text,
     };
     Navigator.pop(context, plantData); 

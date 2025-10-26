@@ -3,7 +3,7 @@ import 'login.dart'; // 로그인 화면을 가져옵니다.
 import 'package:firebase_core/firebase_core.dart'; // Firebase Core 추가
 import 'firebase_options.dart'; // FlutterFire CLI가 생성한 설정 파일
 import 'firebase_messaging_service.dart'; // 1. 새로 만든 메시징 서비스를 import 합니다.
-
+import 'main_screen.dart';
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
@@ -72,7 +72,8 @@ class _MainAppState extends State<MainApp> {
       // },
       // 앱이 처음 켜졌을 때 보여줄 화면을 로그인 페이지로 지정합니다.
       // home 속성은 로그인 상태에 따라 분기 처리하는 로직으로 변경될 수 있습니다. (예: 스플래시 스크린)
-      home: const LoginScreen(),
+      //home: const LoginScreen(),
+      home: const MainScreen(userName: 'test')
     );
   }
 }

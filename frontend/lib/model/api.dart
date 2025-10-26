@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'plant.dart';
 
 // 1. 사용자님의 최신 ngrok 주소를 반영합니다.
-const String baseUrl = "https://54c80334e045.ngrok-free.app";
+const String baseUrl = "https://95a27dbf8715.ngrok-free.app";
 
 // --- 백과사전 관련 함수들 ---
 Future<List<Plant>> fetchPlantList({String? query}) async {
@@ -53,6 +53,26 @@ Future<List<String>> fetchPlantSpecies(String query) async {
   } else {
     print('API 호출 실패 응답: ${response.body}');
     throw Exception('API 호출 실패: ${response.statusCode}');
+  }
+}
+
+// --- 서버에 저장된 내 식물 목록 가져오기 ---
+Future<List<Plant>> fetchMyPlants() async {
+  const String accessToken = 'YOUR_ACCESS_TOKEN'; // TODO: 실제 토큰으로 교체
+  final url = Uri.parse('$baseUrl/plants');
+  try {
+    final response = await http.get(
+      url,
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Plant.fromJson(json)).toList();
+    } else {
+      throw Exception('내 식물 목록 가져오기 실패: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('내 식물 목록 요청 중 오류 발생: $e');
   }
 }
 
