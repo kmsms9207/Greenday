@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'recommend_result.dart';
+import 'model/plant.dart';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -12,7 +16,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   final Map<String, dynamic> _answers = {
     "place": null,
     "experience": null,
-    "has_pets": null,
+    "pets": null,
   };
 
   void _nextStep() {
@@ -136,7 +140,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
         setState(() {
           if (_currentStep == 1) _answers["place"] = value;
           if (_currentStep == 2) _answers["experience"] = value;
-          if (_currentStep == 3) _answers["has_pets"] = value;
+          if (_currentStep == 3) _answers["pets"] = value;
 
           if (_currentStep < 4) _nextStep();
           if (_currentStep == 4) _startLoading();
@@ -188,8 +192,35 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   void _startLoading() async {
-    await Future.delayed(const Duration(seconds: 2)); // 서버 요청 대기 시간 시뮬레이션
-    // TODO: 실제 서버 API 호출 후 결과 화면으로 이동
-    print("설문 결과: $_answers");
+    await Future.delayed(const Duration(seconds: 1)); // 최소 로딩 시간
+
+    try {
+      final response = await http.post(
+        Uri.parse('https://11832cd783df.ngrok-free.app/recommendations/ml'), // 서버 URL
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(_answers),
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        final List<Plant> recommendations = data.map<Plant>((item) {
+          return Plant.fromJson(item);
+        }).toList();
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ResultScreen(recommendations: recommendations),
+            ),
+          );
+        }
+      } else {
+        print("서버 에러: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("서버 연결 실패: $e");
+    }
   }
 }
