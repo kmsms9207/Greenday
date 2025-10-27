@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'recommend_result.dart';
@@ -20,6 +21,20 @@ class _RecommendScreenState extends State<RecommendScreen> {
   };
 
   String? _accessToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAccessToken();
+  }
+
+  Future<void> _loadAccessToken() async {
+    final storage = const FlutterSecureStorage();
+    final token = await storage.read(key: 'accessToken');
+    setState(() {
+      _accessToken = token;
+    });
+  }
 
   void _nextStep() {
     setState(() {
@@ -199,7 +214,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       if (_accessToken == null) return;
 
       final response = await http.post(
-        Uri.parse('https://11832cd783df.ngrok-free.app/recommendations/ml'),
+        Uri.parse('https://edc9e321b23d.ngrok-free.app/recommendations/ml'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_accessToken', // 반드시 null 아님 확인 후
