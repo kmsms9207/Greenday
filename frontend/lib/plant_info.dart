@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'model/plant.dart';
-import 'model/api.dart'; // 1. API 서비스 파일을 import 합니다.
+import 'model/api.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 final _storage = const FlutterSecureStorage();
@@ -13,16 +13,45 @@ Future<String> _getAccessToken() async {
   return accessToken;
 }
 
-class PlantInfoScreen extends StatelessWidget {
-  // 2. 생성자에서 Plant 객체를 직접 받도록 수정 (이전 코드 가정)
+class PlantInfoScreen extends StatefulWidget {
   final Plant plant;
   const PlantInfoScreen({super.key, required this.plant});
 
-  // "물 줬어요" 버튼 클릭 시 실행될 함수
-  Future<void> _handleWatering(BuildContext context) async {
+  @override
+  State<PlantInfoScreen> createState() => _PlantInfoScreenState();
+}
+
+class _PlantInfoScreenState extends State<PlantInfoScreen> {
+  Plant? _plant;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPlantDetail();
+  }
+
+  Future<void> _fetchPlantDetail() async {
     try {
-      final accessToken = await _getAccessToken(); // 토큰 받기
-      await markAsWatered(plant.id, accessToken); // 토큰 전달
+      final updatedPlant = await fetchMyPlantDetail(widget.plant.id);
+      setState(() {
+        _plant = updatedPlant;
+        _loading = false;
+      });
+    } catch (e) {
+      print('식물 정보 불러오기 실패: $e');
+      setState(() {
+        _plant = widget.plant; // 실패 시 기존 데이터 사용
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _handleWatering(BuildContext context) async {
+    if (_plant == null) return;
+    try {
+      final accessToken = await _getAccessToken();
+      await markAsWatered(_plant!.id, accessToken);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
@@ -33,11 +62,11 @@ class PlantInfoScreen extends StatelessWidget {
     }
   }
 
-  // "하루 미루기" 버튼 클릭 시 실행될 함수
   Future<void> _handleSnooze(BuildContext context) async {
+    if (_plant == null) return;
     try {
-      final accessToken = await _getAccessToken(); // 여기서 토큰 받기
-      await snoozeWatering(plant.id, accessToken); // 토큰 전달
+      final accessToken = await _getAccessToken();
+      await snoozeWatering(_plant!.id, accessToken);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')));
@@ -48,8 +77,8 @@ class PlantInfoScreen extends StatelessWidget {
     }
   }
 
-  // 식물 삭제
   Future<void> _showDeletePlantDialog(BuildContext context) async {
+    if (_plant == null) return;
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -69,11 +98,11 @@ class PlantInfoScreen extends StatelessWidget {
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
                 try {
-                  await deleteMyPlant(plant.id); // api.dart 함수 사용
+                  await deleteMyPlant(_plant!.id);
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(const SnackBar(content: Text('식물이 삭제되었습니다.')));
-                  Navigator.pop(context, true); // 이전 화면으로 돌아가기
+                  Navigator.pop(context, true);
                 } catch (e) {
                   ScaffoldMessenger.of(
                     context,
@@ -89,6 +118,10 @@ class PlantInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -111,28 +144,26 @@ class PlantInfoScreen extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        // 내용이 길어질 수 있으므로 스크롤 추가
         padding: const EdgeInsets.all(10),
         child: Column(
           children: [
             Center(
               child: _centerInfoTile(
-                plant.nameKo,
-                plant.species,
-                imageUrl: plant.imageUrl,
+                _plant!.nameKo,
+                _plant!.species,
+                imageUrl: _plant!.imageUrl,
               ),
             ),
-            const SizedBox(height: 30), // 간격 조절
+            const SizedBox(height: 30),
             Column(
               children: [
-                _leftInfoTile("햇빛", plant.lightRequirement),
-                _leftInfoTile("물주기", plant.wateringType),
-                _leftInfoTile("난이도", plant.difficulty),
-                _leftInfoTile("반려동물 안전", plant.petSafe ? "안전" : "주의"),
+                _leftInfoTile("햇빛", _plant!.lightRequirement),
+                _leftInfoTile("물주기", _plant!.wateringType),
+                _leftInfoTile("난이도", _plant!.difficulty),
+                _leftInfoTile("반려동물 안전", _plant!.petSafe ? "안전" : "주의"),
               ],
             ),
-            const SizedBox(height: 30), // 버튼 위 간격 추가
-            // 3. "물 줬어요" 와 "하루 미루기" 버튼 추가
+            const SizedBox(height: 30),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -156,7 +187,7 @@ class PlantInfoScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 30), // 버튼 아래 간격 추가
+            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -178,7 +209,6 @@ class PlantInfoScreen extends StatelessWidget {
     );
   }
 
-  // 가운데 정렬 위젯 (이미지 부분 수정: NetworkImage 사용)
   Widget _centerInfoTile(String name, String species, {String? imageUrl}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -190,7 +220,7 @@ class PlantInfoScreen extends StatelessWidget {
             color: Colors.grey[300],
             image: imageUrl != null && imageUrl.isNotEmpty
                 ? DecorationImage(
-                    image: NetworkImage(imageUrl), // NetworkImage로 변경
+                    image: NetworkImage(imageUrl),
                     fit: BoxFit.cover,
                   )
                 : null,
@@ -216,7 +246,6 @@ class PlantInfoScreen extends StatelessWidget {
     );
   }
 
-  // 왼쪽 정렬 위젯 (기존 코드와 동일)
   Widget _leftInfoTile(String label, String value) {
     return Card(
       color: const Color(0xFFF1F1F1),
@@ -240,7 +269,7 @@ class PlantInfoScreen extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              value.isNotEmpty ? value : "정보 없음", // 값이 비어있을 경우 처리
+              value.isNotEmpty ? value : "정보 없음",
               style: const TextStyle(fontSize: 16),
             ),
           ],

@@ -12,7 +12,6 @@ class MyPlantScreen extends StatefulWidget {
 }
 
 class _MyPlantScreenState extends State<MyPlantScreen> {
-  // 서버에서 가져온 식물 리스트
   List<Plant> _plantsFromServer = [];
 
   @override
@@ -21,10 +20,9 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
     fetchMyPlantsFromServer();
   }
 
-  // 서버에서 내 식물 가져오기
   Future<void> fetchMyPlantsFromServer() async {
     try {
-      final plants = await fetchMyPlants(); // api.dart에 구현된 함수 사용
+      final plants = await fetchMyPlants();
       setState(() {
         _plantsFromServer = plants;
       });
@@ -60,53 +58,81 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // 첫 번째 식물 이미지
+                  // 첫 번째 식물 이미지 (없으면 '+' 아이콘)
                   AspectRatio(
                     aspectRatio: 1,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(15.0),
-                        image: _plantsFromServer.isNotEmpty &&
-                                _plantsFromServer[0].imageUrl.isNotEmpty
-                            ? DecorationImage(
-                                image: NetworkImage(_plantsFromServer[0].imageUrl),
-                                fit: BoxFit.cover,
+                    child: InkWell(
+                      onTap: () async {
+                        if (_plantsFromServer.isEmpty) return;
+                        final plant = _plantsFromServer[0];
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PlantInfoScreen(plant: plant),
+                          ),
+                        );
+                        if (result == true) {
+                          setState(() => _plantsFromServer.removeAt(0));
+                        } else if (result == false) {
+                          final updatedPlant = await fetchPlantDetail(plant.id);
+                          setState(() => _plantsFromServer[0] = updatedPlant);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(15.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(15.0),
+                          image:
+                              _plantsFromServer.isNotEmpty &&
+                                  _plantsFromServer[0].imageUrl.isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(
+                                    _plantsFromServer[0].imageUrl,
+                                  ),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child:
+                            _plantsFromServer.isEmpty ||
+                                _plantsFromServer[0].imageUrl.isEmpty
+                            ? const Icon(
+                                Icons.eco,
+                                size: 40,
+                                color: Colors.white,
                               )
                             : null,
                       ),
-                      child: _plantsFromServer.isEmpty ||
-                              _plantsFromServer[0].imageUrl.isEmpty
-                          ? const Icon(Icons.eco, size: 40, color: Colors.white)
-                          : null,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // 그리드뷰
+                  // 그리드뷰 (첫 번째 식물 제외)
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                    ),
-                    itemCount: _plantsFromServer.length + 1, // +1: 새 식물 버튼
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                    itemCount: _plantsFromServer.length + 1, // +1: 플러스 버튼
                     itemBuilder: (context, index) {
-                      // '+' 버튼
+                      // + 버튼
                       if (index == 0) {
                         return InkWell(
                           onTap: () async {
                             final newPlant = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const PlantFormScreen(),
+                                builder: (_) => const PlantFormScreen(),
                               ),
                             );
+
                             if (newPlant != null && newPlant is Plant) {
-                              setState(() {
-                                _plantsFromServer.insert(0, newPlant);
-                              });
+                              // 서버에서 다시 fetch하여 순서/이미지 정확히 반영
+                              await fetchMyPlantsFromServer();
                             }
                           },
                           borderRadius: BorderRadius.circular(10.0),
@@ -124,15 +150,30 @@ class _MyPlantScreenState extends State<MyPlantScreen> {
                         );
                       }
 
-                      final plant = _plantsFromServer[index - 1];
+                      final plant =
+                          _plantsFromServer[index - 1]; // index-1로 실제 식물 매핑
                       return InkWell(
-                        onTap: () {
-                          Navigator.push(
+                        onTap: () async {
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PlantInfoScreen(plant: plant),
+                              builder: (_) => PlantInfoScreen(plant: plant),
                             ),
                           );
+                          if (result == true) {
+                            setState(() => _plantsFromServer.remove(plant));
+                          } else if (result == false) {
+                            final updatedPlant = await fetchPlantDetail(
+                              plant.id,
+                            );
+                            setState(() {
+                              final plantIndex = _plantsFromServer.indexWhere(
+                                (p) => p.id == plant.id,
+                              );
+                              if (plantIndex != -1)
+                                _plantsFromServer[plantIndex] = updatedPlant;
+                            });
+                          }
                         },
                         borderRadius: BorderRadius.circular(10.0),
                         child: Container(

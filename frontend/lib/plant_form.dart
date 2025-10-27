@@ -3,6 +3,17 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'model/api.dart';
 import 'model/plant.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+final _storage = const FlutterSecureStorage();
+
+Future<String> _getAccessToken() async {
+  final accessToken = await _storage.read(key: 'accessToken');
+  if (accessToken == null) {
+    throw Exception('로그인 토큰을 찾을 수 없습니다. 다시 로그인해주세요.');
+  }
+  return accessToken;
+}
 
 class PlantFormScreen extends StatefulWidget {
   const PlantFormScreen({super.key});
@@ -17,6 +28,7 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
   List<String> _suggestions = []; // API에서 받아올 추천 목록
   String? _serverImageUrl;
   List<Plant> _allPlants = []; // 전체 식물 목록 저장
+  int? _selectedPlantMasterId;
 
   @override
   void initState() {
@@ -32,40 +44,46 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
         });
   }
 
-  Future<void> savePlantToServer(Plant plant) async {
-    final url = Uri.parse('https://95a27dbf8715.ngrok-free.app/plants');
+  // 서버에 식물 저장 후 생성된 Plant 객체 반환
+  Future<Plant> savePlantToServer(Plant plant) async {
+    if (_selectedPlantMasterId == null) {
+      throw Exception('서버 식물 ID가 선택되지 않았습니다.');
+    }
+
+    final accessToken = await _getAccessToken();
+    final url = Uri.parse('$baseUrl/plants/');
 
     final response = await http.post(
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+        'Authorization': 'Bearer $accessToken',
       },
       body: jsonEncode({
         'name': plant.nameKo,
-        'species': plant.species,
-        'master_image_url': plant.imageUrl, // 서버에서 접근 가능한 URL이어야 함
+        'plant_master_id': _selectedPlantMasterId,
       }),
     );
 
     if (response.statusCode == 201) {
-      print('식물 저장 성공');
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      return Plant.fromJson(data);
     } else if (response.statusCode == 422) {
-      print('검증 오류: ${response.body}');
+      throw Exception('검증 오류: ${response.body}');
     } else {
-      print('알 수 없는 오류: ${response.statusCode}');
+      throw Exception('알 수 없는 오류: ${response.statusCode}');
     }
   }
 
-  // 저장 함수
+  // 저장 버튼 클릭
   Future<void> _savePlant() async {
     final nickname = _nicknameController.text;
     final species = _speciesController.text;
 
-    if (nickname.isEmpty || species.isEmpty) {
+    if (nickname.isEmpty || species.isEmpty || _selectedPlantMasterId == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('식물의 별명과 종을 입력해주세요.')));
+      ).showSnackBar(const SnackBar(content: Text('식물의 별명과 종을 정확히 선택해주세요.')));
       return;
     }
 
@@ -73,7 +91,7 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
       id: 0,
       nameKo: nickname,
       species: species,
-      imageUrl: _serverImageUrl ?? '', // 서버 이미지 URL 저장
+      imageUrl: _serverImageUrl ?? '',
       description: '',
       difficulty: '',
       lightRequirement: '',
@@ -83,17 +101,16 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     );
 
     try {
-      await savePlantToServer(newPlant); // 서버 저장
+      final savedPlant = await savePlantToServer(newPlant);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('식물이 서버에 저장되었습니다.')));
+      Navigator.pop(context, savedPlant); // 이전 화면으로 등록된 식물 전달
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('서버 저장 실패: $e')));
     }
-
-    Navigator.pop(context, newPlant); // 이전 화면으로 돌아가기
   }
 
   @override
@@ -101,9 +118,9 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     return Scaffold(
       backgroundColor: Colors.white, // 전체 배경
       appBar: AppBar(
-        backgroundColor: Colors.white, // AppBar 배경
-        toolbarHeight: 50, // AppBar 높이
-        centerTitle: true, // 중앙 정렬
+        backgroundColor: Colors.white,
+        toolbarHeight: 50,
+        centerTitle: true,
         title: const Text.rich(
           TextSpan(
             children: [
@@ -119,73 +136,57 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
           ),
         ),
       ),
-      // 1. SingleChildScrollView를 추가하여 화면 오버플로우를 방지합니다.
       body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            children: [
-              // 식물 별명 + 식물 종
-              Center(child: _centerInfoTile()),
-              const SizedBox(height: 50),
-              Column(
-                children: [
-                  inputCard(
-                    controller: _nicknameController,
-                    hint: "식물의 별명을 입력해 주세요.",
-                  ),
-                  inputCardWithSuggestions(
-                    controller: _speciesController,
-                    hint: "식물의 종을 입력해 주세요.",
-                    suggestions: _suggestions,
-                    onChanged: (value) async {
-                      if (value.isEmpty) {
-                        setState(() => _suggestions = []);
-                        return;
-                      }
-                      final suggestions = await fetchPlantSpecies(value);
-                      setState(() => _suggestions = suggestions);
-                    },
-                    onSuggestionTap: (s) {
-                      _speciesController.text = s;
-                      _suggestions = [];
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            Center(child: _centerInfoTile()),
+            const SizedBox(height: 50),
+            Column(
+              children: [
+                inputCard(
+                  controller: _nicknameController,
+                  hint: "식물의 별명을 입력해 주세요.",
+                ),
+                inputCardWithSuggestions(
+                  controller: _speciesController,
+                  hint: "식물의 종을 입력해 주세요.",
+                  suggestions: _suggestions,
+                  onChanged: (value) async {
+                    if (value.isEmpty) {
+                      setState(() => _suggestions = []);
+                      return;
+                    }
+                    final suggestions = await fetchPlantSpecies(value);
+                    setState(() => _suggestions = suggestions);
+                  },
+                  onSuggestionTap: (s) {
+                    _speciesController.text = s;
+                    setState(() => _suggestions = []);
 
-                      try {
-                        final matchedPlant = _allPlants.firstWhere(
-                          (p) => p.nameKo == s,
-                          orElse: () => Plant(
-                            id: 0,
-                            nameKo: '',
-                            species: '',
-                            imageUrl: '',
-                            description: '',
-                            difficulty: '',
-                            lightRequirement: '',
-                            wateringType: '',
-                            petSafe: false,
-                            tags: [],
-                          ),
-                        );
+                    try {
+                      final matchedPlant = _allPlants.firstWhere(
+                        (p) => p.nameKo == s || p.species == s,
+                        orElse: () => throw Exception('선택한 식물을 서버에서 찾을 수 없음'),
+                      );
 
-                        setState(() {
-                          _serverImageUrl =
-                              matchedPlant.imageUrl; // 서버 이미지 URL 저장
-                        });
-                      } catch (e) {
-                        print('서버 이미지 불러오기 실패: $e');
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+                      setState(() {
+                        _serverImageUrl = matchedPlant.imageUrl;
+                        _selectedPlantMasterId = matchedPlant.id;
+                      });
+                    } catch (e) {
+                      print('서버 이미지 불러오기 실패: $e');
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-
       bottomNavigationBar: SizedBox(
         width: double.infinity,
-        height: 60, // 버튼 높이
+        height: 60,
         child: ElevatedButton(
           onPressed: _savePlant,
           style: ElevatedButton.styleFrom(
@@ -202,7 +203,6 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     );
   }
 
-  // 가운데 정렬 위젯
   Widget _centerInfoTile() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -211,23 +211,22 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
           width: 200,
           height: 200,
           decoration: BoxDecoration(
-            color: Colors.grey[300], // 기본 배경색 (회색)
+            color: Colors.grey[300],
             image: _serverImageUrl != null && _serverImageUrl!.isNotEmpty
                 ? DecorationImage(
                     image: NetworkImage(_serverImageUrl!),
                     fit: BoxFit.cover,
                   )
-                : null, // _selectedImage가 없으면 빈 네모
+                : null,
           ),
           child: _serverImageUrl == null || _serverImageUrl!.isEmpty
               ? const Icon(Icons.eco, size: 40, color: Colors.white)
-              : null, // 사진 없으면 카메라 아이콘
+              : null,
         ),
       ],
     );
   }
 
-  // 왼쪽 정렬 위젯
   Widget inputCard({
     required TextEditingController controller,
     required String hint,
@@ -238,16 +237,16 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
       margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Container(
-        width: double.infinity, // 카드 폭
-        height: 50, // 카드 높이
+        width: double.infinity,
+        height: 50,
         padding: const EdgeInsets.all(12),
         child: TextField(
           controller: controller,
           decoration: InputDecoration(
             hintText: hint,
             border: InputBorder.none,
-            isDense: true, // 높이 맞춤
-            contentPadding: EdgeInsets.zero, // 내부 패딩 제거
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
           ),
           style: const TextStyle(fontSize: 16, color: Color(0xFF656565)),
         ),

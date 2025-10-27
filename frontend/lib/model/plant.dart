@@ -27,9 +27,14 @@ class Plant {
   factory Plant.fromJson(Map<String, dynamic> json) {
     return Plant(
       id: json['id'] ?? json['pk'] ?? 0, // id가 없으면 pk, 둘 다 없으면 0
-      nameKo: json['name_ko'] ?? '이름 없음',
+      // [수정됨] /plants/의 'name' 키와 /encyclopedia/의 'name_ko' 키 모두 호환
+      nameKo: json['name'] ?? json['name_ko'] ?? '이름 없음',
+
       species: json['species'] ?? '학명 정보 없음',
-      imageUrl: json['image_url'] ?? '', // 이미지 URL이 없으면 빈 문자열
+
+      // [수정됨] /plants/의 'master_image_url' 키와 /encyclopedia/의 'image_url' 키 모두 호환
+      imageUrl: json['master_image_url'] ?? json['image_url'] ?? '',
+
       description: json['description'] ?? '설명이 없습니다.',
       difficulty: json['difficulty'] ?? '정보 없음',
       lightRequirement: json['light_requirement'] ?? '정보 없음',
