@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 import models
 import database
-from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin,chat
+from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin,chat,diary
 
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv()) 
@@ -27,6 +27,7 @@ app.include_router(diagnose_v3.router)
 app.include_router(media.router)
 app.include_router(remedy.router)
 app.include_router(chat.router)
+app.include_router(diary)
 
 @app.get("/")
 def read_root():

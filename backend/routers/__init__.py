@@ -2,7 +2,8 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .plants import router as plants_router
 from .identify import router as identify_router
-from .encyclopedia import router as encyclopedia_router  
+from .encyclopedia import router as encyclopedia_router 
+from .diary import router as diary 
 # from .recommendation import router as recommendations_router  
 # from .catalog import router as catalog_router
 

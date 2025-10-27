@@ -151,3 +151,30 @@ class ChatMessage(Base):
     tokens_in = Column(Integer, nullable=True)
     tokens_out = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+class DiaryPost(Base):
+    __tablename__ = "diary_posts"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+
+    title = Column(String(120), nullable=False)
+    body  = Column(Text, nullable=False)
+
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+    updated_at = Column(DateTime, onupdate=func.now())
+
+    media = relationship("DiaryMedia", back_populates="post", cascade="all, delete-orphan", order_by="DiaryMedia.order")
+
+class DiaryMedia(Base):
+    __tablename__ = "diary_media"
+
+    id = Column(Integer, primary_key=True)
+    post_id = Column(Integer, ForeignKey("diary_posts.id", ondelete="CASCADE"), index=True, nullable=False)
+    url = Column(String(512), nullable=False)        # 최종 접근 URL
+    thumb_url = Column(String(512), nullable=True)   # 썸네일(없으면 url 사용)
+    width = Column(Integer)
+    height = Column(Integer)
+    order = Column(Integer, default=0)               # 표시 순서
+
+    post = relationship("DiaryPost", back_populates="media")
