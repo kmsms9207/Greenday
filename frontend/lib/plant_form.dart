@@ -39,7 +39,8 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
       url,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer YOUR_ACCESS_TOKEN',},
+        'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+      },
       body: jsonEncode({
         'name': plant.nameKo,
         'species': plant.species,

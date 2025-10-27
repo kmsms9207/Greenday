@@ -8,7 +8,7 @@ import 'diagnosis_model.dart'; // 2. 진단 모델 import
 import 'remedy_model.dart'; // 3. 처방전 모델 import
 
 // 4. 사용자님의 최신 ngrok 주소를 반영합니다.
-const String baseUrl = "https://11832cd783df.ngrok-free.app";
+const String baseUrl = "https://33ec24b88e40.ngrok-free.app";
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
@@ -87,6 +87,40 @@ Future<List<Plant>> fetchMyPlants() async {
     }
   } catch (e) {
     throw Exception('내 식물 목록 요청 중 오류 발생: $e');
+  }
+}
+
+// 삭제
+Future<void> deleteMyPlant(int plantId) async {
+  final accessToken = await _getAccessToken();
+  final url = Uri.parse('$baseUrl/plants/$plantId');
+
+  // 디버깅용 로그 추가
+  print('🍀 [DEBUG] Delete Plant 요청');
+  print('🍀 요청 URL: $url');
+  print('🍀 Authorization 헤더: Bearer $accessToken');
+
+  try {
+    final response = await http.delete(
+      url,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    print('🍀 서버 응답 코드: ${response.statusCode}');
+    print('🍀 서버 응답 본문: ${response.body}');
+
+    if (response.statusCode == 200) {
+      print('✅ 식물 삭제 성공 (plantId: $plantId)');
+    } else {
+      print('❌ 식물 삭제 실패: ${response.statusCode}, ${response.body}');
+      throw Exception('식물 삭제 실패: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('🚨 식물 삭제 중 오류 발생: $e');
+    throw Exception('식물 삭제 중 오류 발생: $e');
   }
 }
 

@@ -13,11 +13,12 @@ class RecommendScreen extends StatefulWidget {
 }
 
 class _RecommendScreenState extends State<RecommendScreen> {
-  int _currentStep = 1; 
+  int _currentStep = 1;
   final Map<String, dynamic> _answers = {
     "place": null,
     "experience": null,
-    "has_pets": null,
+    "pets": null,
+    "sunlight": null, // 서버 API에서 요구하는 필드 추가
   };
 
   String? _accessToken;
@@ -48,7 +49,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
         _currentStep--;
       });
     } else {
-      Navigator.of(context).pop(); 
+      Navigator.of(context).pop();
     }
   }
 
@@ -77,6 +78,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
       case 3:
         return _buildQuestion3();
       case 4:
+        return _buildQuestion4(); // 햇빛 질문 추가
+      case 5:
         return _buildLoadingScreen();
       default:
         return const SizedBox.shrink();
@@ -90,7 +93,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       options: [
         _optionTile(Icons.window, "창가", "window"),
         _optionTile(Icons.home, "실내", "indoor"),
-        _optionTile(Icons.shower, "화장실", "bathroom"),
+        _optionTile(Icons.shower, "그늘진", "bathroom"),
       ],
     );
   }
@@ -118,17 +121,32 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 질문 공통 위젯 
-  Widget _buildQuestion({required String title, required List<Widget> options}) {
+  // 네 번째 질문: 햇빛
+  Widget _buildQuestion4() {
+    return _buildQuestion(
+      title: "식물이 받을 햇빛은 어느 정도인가요?",
+      options: [
+        _optionTile(Icons.wb_sunny, "적음", "low"),
+        _optionTile(Icons.wb_sunny, "보통", "medium"),
+        _optionTile(Icons.wb_sunny, "많음", "high"),
+      ],
+    );
+  }
+
+  // 질문 공통 위젯
+  Widget _buildQuestion({
+    required String title,
+    required List<Widget> options,
+  }) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: double.infinity, 
+            width: double.infinity,
             child: Card(
-              margin: EdgeInsets.zero, 
+              margin: EdgeInsets.zero,
               color: const Color.fromARGB(255, 144, 167, 144),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -157,14 +175,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
         setState(() {
           if (_currentStep == 1) _answers["place"] = value;
           if (_currentStep == 2) _answers["experience"] = value;
-          if (_currentStep == 3) _answers["has_pets"] = value;
-
-          if (_currentStep < 4) _nextStep();
-          if (_currentStep == 4) _startLoading();
+          if (_currentStep == 3) _answers["pets"] = value;
+          if (_currentStep == 4) _answers["sunlight"] = value; // 햇빛 값 저장
+          if (_currentStep < 5) _nextStep();
+          if (_currentStep == 5) _startLoading();
         });
       },
       child: SizedBox(
-        width: double.infinity, 
+        width: double.infinity,
         child: Card(
           color: Colors.grey[300],
           shape: RoundedRectangleBorder(
@@ -186,7 +204,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
             ),
           ),
         ),
-      )
+      ),
     );
   }
 
@@ -198,10 +216,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
         children: [
           CircularProgressIndicator(color: Color(0xFFA4B6A4)),
           SizedBox(height: 40),
-          Text(
-            "AI가 당신에게 맞는 식물을 찾고 있어요...",
-            style: TextStyle(fontSize: 18),
-          ),
+          Text("AI가 당신에게 맞는 식물을 찾고 있어요...", style: TextStyle(fontSize: 18)),
         ],
       ),
     );
@@ -214,7 +229,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       if (_accessToken == null) return;
 
       final response = await http.post(
-        Uri.parse('https://edc9e321b23d.ngrok-free.app/recommendations/ml'),
+        Uri.parse('https://33ec24b88e40.ngrok-free.app/recommendations/ml'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_accessToken', // 반드시 null 아님 확인 후
@@ -224,8 +239,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        final List<Plant> recommendations =
-            data.map<Plant>((item) => Plant.fromJson(item)).toList();
+        final List<Plant> recommendations = data
+            .map<Plant>((item) => Plant.fromJson(item))
+            .toList();
 
         if (mounted) {
           Navigator.push(
@@ -240,7 +256,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
         print("응답 본문: ${response.body}");
         print("보낸 데이터: ${jsonEncode(_answers)}");
       }
-
     } catch (e) {
       print("서버 연결 실패: $e");
     }

@@ -3,7 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'model/api.dart';
 import 'model/plant.dart';
 import 'encyclopedia_detail.dart';
-import 'dart:async'; // Timer를 사용하기 위해 import
+import 'dart:async';
 
 class EncyclopediaListScreen extends StatefulWidget {
   const EncyclopediaListScreen({super.key});
@@ -36,15 +36,15 @@ class _EncyclopediaListScreenState extends State<EncyclopediaListScreen> {
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      final newQuery = _searchController.text;
-      // 1. 디버깅 로그 추가: 검색어가 변경될 때마다 로그 출력
-      print('Search query changed: $newQuery');
+      final newQuery = _searchController.text.trim(); // 공백 제거
+      print('Search query changed: "$newQuery"');
       if (_searchQuery != newQuery) {
         setState(() {
           _searchQuery = newQuery;
-          // 2. 디버깅 로그 추가: API 호출 직전 로그 출력
-          print('Calling fetchPlantList with query: $_searchQuery');
-          _plantListFuture = fetchPlantList(query: _searchQuery);
+          print('Calling fetchPlantList with query: "$_searchQuery"');
+          _plantListFuture = fetchPlantList(
+            query: _searchQuery.isEmpty ? null : _searchQuery,
+          );
         });
       }
     });
@@ -71,7 +71,7 @@ class _EncyclopediaListScreenState extends State<EncyclopediaListScreen> {
               if (_searchQuery.isNotEmpty) {
                 setState(() {
                   _searchQuery = '';
-                  _plantListFuture = fetchPlantList();
+                  _plantListFuture = fetchPlantList(); // 초기 리스트
                 });
               }
             },
@@ -81,10 +81,6 @@ class _EncyclopediaListScreenState extends State<EncyclopediaListScreen> {
       body: FutureBuilder<List<Plant>>(
         future: _plantListFuture,
         builder: (context, snapshot) {
-          // 3. 디버깅 로그 추가: FutureBuilder가 다시 빌드될 때 로그 출력
-          print(
-            'FutureBuilder rebuilding with connection state: ${snapshot.connectionState}',
-          );
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {

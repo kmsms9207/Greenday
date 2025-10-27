@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'model/plant.dart';
 import 'model/api.dart'; // 1. API 서비스 파일을 import 합니다.
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -22,27 +21,30 @@ class PlantInfoScreen extends StatelessWidget {
   // "물 줬어요" 버튼 클릭 시 실행될 함수
   Future<void> _handleWatering(BuildContext context) async {
     try {
-      final accessToken = await _getAccessToken();  // 토큰 받기
-      await markAsWatered(plant.id, accessToken);  // 토큰 전달
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
+      final accessToken = await _getAccessToken(); // 토큰 받기
+      await markAsWatered(plant.id, accessToken); // 토큰 전달
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
     }
   }
 
   // "하루 미루기" 버튼 클릭 시 실행될 함수
   Future<void> _handleSnooze(BuildContext context) async {
     try {
-      final accessToken = await _getAccessToken();  // 여기서 토큰 받기
+      final accessToken = await _getAccessToken(); // 여기서 토큰 받기
       await snoozeWatering(plant.id, accessToken); // 토큰 전달
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')));
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('알림 미루기 실패: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('알림 미루기 실패: $e')));
     }
   }
 
@@ -66,24 +68,17 @@ class PlantInfoScreen extends StatelessWidget {
               child: const Text('삭제', style: TextStyle(color: Colors.red)),
               onPressed: () async {
                 Navigator.of(dialogContext).pop();
-                // 서버 삭제
                 try {
-                  final url = Uri.parse(
-                      'https://95a27dbf8715.ngrok-free.app/plants/${plant.id}');
-                  final response = await http.delete(url);
-                  if (response.statusCode == 200) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('식물이 삭제되었습니다.')));
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('삭제 실패: ${response.statusCode}')));
-                  }
+                  await deleteMyPlant(plant.id); // api.dart 함수 사용
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('식물이 삭제되었습니다.')));
+                  Navigator.pop(context, true); // 이전 화면으로 돌아가기
                 } catch (e) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('삭제 오류: $e')));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
                 }
-
-                Navigator.pop(context, true); // 이전 화면으로 돌아가기
               },
             ),
           ],
