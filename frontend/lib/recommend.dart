@@ -19,6 +19,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
     "pets": null,
   };
 
+  String? _accessToken;
+
   void _nextStep() {
     setState(() {
       _currentStep++;
@@ -194,9 +196,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
     await Future.delayed(const Duration(seconds: 1)); // 최소 로딩 시간
 
     try {
+      if (_accessToken == null) return;
+
       final response = await http.post(
-        Uri.parse('https://11832cd783df.ngrok-free.app/recommendations/ml'), // 서버 URL
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('https://11832cd783df.ngrok-free.app/recommendations/ml'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_accessToken', // 반드시 null 아님 확인 후
+        },
         body: jsonEncode(_answers),
       );
 
