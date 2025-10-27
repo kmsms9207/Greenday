@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'signup.dart';
-import 'main_screen.dart'; // 메인 화면을 import 합니다.
-// import 'my_plant_screen.dart'; // 더 이상 사용하지 않으므로 삭제
+import 'main_screen.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'model/api.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,16 +16,20 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _storage = const FlutterSecureStorage();
 
   Future<void> attemptLogin() async {
-    // 보내주신 코드의 최신 URL을 반영합니다.
-    const String apiUrl = "https://95a27dbf8715.ngrok-free.app/auth/login";
+    const String apiUrl = "https://11832cd783df.ngrok-free.app/auth/login";
 
     try {
+      // 1. 로그인 API는 JSON이 아닌 Form-urlencoded 방식을 사용합니다.
       final response = await http.post(
         Uri.parse(apiUrl),
+        // 2. 헤더를 'Form' 형식으로 다시 변경합니다.
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        // 3. body를 jsonEncode하지 않고 Map<String, String>으로 보냅니다.
         body: {
+          // 4. 'grant_type': 'password' 필드가 다시 필요합니다.
           'grant_type': 'password',
           'username': _usernameController.text,
           'password': _passwordController.text,
@@ -36,25 +42,43 @@ class _LoginScreenState extends State<LoginScreen> {
         final accessToken = responseBody['access_token'];
         print("로그인 성공! 토큰: $accessToken");
 
-        // TODO: 여기서 발급받은 accessToken을 안전한 곳에 저장해야 합니다.
+        await _storage.write(key: 'accessToken', value: accessToken);
 
-        // 1. 사용자 이름 추출 (임시방편: 이메일에서 @ 앞부분 사용)
-        // 나중에는 서버 응답에서 실제 사용자 이름을 받아오거나,
-        // 토큰 저장 후 /users/me 같은 API를 호출하여 가져와야 합니다.
+        // FCM 토큰 발급 및 서버 전송
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null) {
+            print("FCM Token: $fcmToken");
+            await registerPushToken(fcmToken, accessToken);
+          } else {
+            print("FCM 토큰 발급 실패");
+          }
+        } catch (e) {
+          print("FCM 토큰 처리 중 오류 발생: $e");
+        }
+
         final email = _usernameController.text;
         final userName = email.split('@').first;
 
-        // 2. 로그인 성공 후, MainScreen으로 이동하면서 사용자 이름을 전달합니다.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => MainScreen(userName: userName), // userName 전달
+            builder: (context) => MainScreen(userName: userName),
           ),
         );
       } else {
+        // 5. 서버가 보내는 실제 오류 메시지를 표시하도록 수정
+        String errorMessage = "ID 또는 비밀번호가 잘못되었습니다.";
+        try {
+          final responseBody = jsonDecode(utf8.decode(response.bodyBytes));
+          if (responseBody.containsKey('detail')) {
+            errorMessage = responseBody['detail'];
+          }
+        } catch (_) {} // JSON 파싱 실패 시 기본 메시지 사용
+
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text("ID 또는 비밀번호가 잘못되었습니다.")));
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
     } catch (e) {
       ScaffoldMessenger.of(

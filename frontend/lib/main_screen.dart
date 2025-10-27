@@ -6,6 +6,7 @@ import 'chatbot.dart';
 import 'encyclopedia_list.dart';
 import 'plant_diary.dart';
 import 'recommend.dart';
+import 'diagnosis_screen.dart'; // 1. 'AI 식물 진단' 화면을 import 합니다.
 
 class MainScreen extends StatefulWidget {
   // 로그인 화면에서 사용자 이름을 전달받기 위한 변수
@@ -57,12 +58,10 @@ class _MainScreenState extends State<MainScreen> {
       body: Center(child: _widgetOptions.elementAt(_selectedIndex)),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          // --- 이 부분이 수정되었습니다 ---
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined), // 아이콘을 집 모양으로 변경
             label: '홈', // 라벨을 '홈'으로 변경
           ),
-          // --- 여기까지 ---
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today_outlined),
             label: '성장 일지',
@@ -139,7 +138,7 @@ class HomePage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 공지사항, 큰 회색 박스 등 기존 UI...
+            // 공지사항 (기존 UI 유지)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
@@ -157,115 +156,114 @@ class HomePage extends StatelessWidget {
             ),
 
             const SizedBox(height: 16),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const EncyclopediaListScreen(), // 백과사전 화면
-                  ),
-                );
-              },
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFA4B6A4),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Center(
-                  child: Text(
-                    "식물 백과사전",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
 
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              title: "AI 챗봇",
-              buttonText: "챗봇 상담 받기",
-              onPressed: () {
-                Navigator.push(
+            // --- 2. 레이아웃을 2x2 그리드로 변경 ---
+            GridView.count(
+              crossAxisCount: 2, // 한 줄에 2개
+              shrinkWrap: true, // SingleChildScrollView 안에서 필수
+              physics: const NeverScrollableScrollPhysics(), // 스크롤 충돌 방지
+              crossAxisSpacing: 16, // 좌우 간격
+              mainAxisSpacing: 16, // 상하 간격
+              childAspectRatio: 0.9, // 카드의 가로세로 비율 (조절 가능)
+              children: [
+                _buildGridCard(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => ChatbotScreen(userName: userName),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildInfoCard(
-              title: "반려식물 추천",
-              buttonText: "반려 식물 추천 받기",
-              onPressed: () {
-                Navigator.push(
+                  title: '식물 백과사전',
+                  icon: Icons.menu_book_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EncyclopediaListScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildGridCard(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const RecommendScreen(),
-                  ),
-                );
-              },
+                  title: 'AI 식물 진단', // 3. 새 카드 추가
+                  icon: Icons.local_florist_outlined,
+                  onTap: () {
+                    // 4. DiagnosisScreen으로 연결
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DiagnosisScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildGridCard(
+                  context,
+                  title: 'AI 챗봇',
+                  icon: Icons.chat_bubble_outline,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatbotScreen(userName: userName),
+                      ),
+                    );
+                  },
+                ),
+                _buildGridCard(
+                  context,
+                  title: '반려식물 추천',
+                  icon: Icons.recommend_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RecommendScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
+            // --- 그리드 끝 ---
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoCard({
+  // 5. 4개의 카드를 그리기 위한 새로운 공통 헬퍼 위젯
+  Widget _buildGridCard(
+    BuildContext context, {
     required String title,
-    required String buttonText,
-    required VoidCallback onPressed,
+    required IconData icon,
+    required VoidCallback onTap,
   }) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: onPressed,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD7E0D7),
-                      foregroundColor: Colors.black54,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: Text(buttonText),
-                  ),
-                ],
+      child: InkWell(
+        // 클릭 효과
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 40, color: const Color(0xFF486B48)),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(15),
+              const SizedBox(height: 4),
+              const Text(
+                "바로가기",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

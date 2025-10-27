@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'model/api.dart'; // 1. API 서비스 파일을 import 합니다.
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // 2. Secure Storage import
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
+  // 3. Secure Storage 인스턴스 생성
+  final _storage = const FlutterSecureStorage();
+
   // "물 줬어요" 버튼 클릭 시 실행될 함수
   Future<void> _handleWatering(BuildContext context, int plantId) async {
     try {
-      await markAsWatered(plantId); // API 호출
+      // 4. 저장된 accessToken을 읽어옵니다.
+      final accessToken = await _storage.read(key: 'accessToken');
+      if (accessToken == null) {
+        throw Exception('로그인 토큰을 찾을 수 없습니다.');
+      }
+
+      await markAsWatered(plantId, accessToken); // 5. API 호출 시 accessToken 전달
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
@@ -22,7 +32,13 @@ class NotificationScreen extends StatelessWidget {
   // "하루 미루기" 버튼 클릭 시 실행될 함수
   Future<void> _handleSnooze(BuildContext context, int plantId) async {
     try {
-      await snoozeWatering(plantId); // API 호출
+      // 4. 저장된 accessToken을 읽어옵니다.
+      final accessToken = await _storage.read(key: 'accessToken');
+      if (accessToken == null) {
+        throw Exception('로그인 토큰을 찾을 수 없습니다.');
+      }
+
+      await snoozeWatering(plantId, accessToken); // 5. API 호출 시 accessToken 전달
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')));
@@ -131,6 +147,7 @@ class NotificationScreen extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     ElevatedButton(
+                                      // 6. 함수 연결
                                       onPressed: () => _handleWatering(
                                         context,
                                         notification['plantId'] as int,
@@ -153,6 +170,7 @@ class NotificationScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     ElevatedButton(
+                                      // 6. 함수 연결
                                       onPressed: () => _handleSnooze(
                                         context,
                                         notification['plantId'] as int,
@@ -184,6 +202,7 @@ class NotificationScreen extends StatelessWidget {
                       );
                     },
                     separatorBuilder: (context, index) {
+                      // 각 알림 사이에 희미한 회색 구분선 추가
                       return Divider(
                         height: 1,
                         thickness: 1,
