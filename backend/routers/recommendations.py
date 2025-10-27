@@ -9,6 +9,9 @@ import schemas, models, crud
 from database import get_db
 from dependencies import get_current_user
 
+import logging # 로깅 추가
+logger = logging.getLogger(__name__) # 로거 설정
+
 router = APIRouter(
     prefix="/recommendations",
     tags=["Recommendations"],
@@ -113,6 +116,9 @@ def recommend_plants_with_ml(
     """
     if not all([ml_model, ml_encoder, cluster_map]):
         raise HTTPException(status_code=503, detail="ML 추천 기능이 현재 비활성화 상태입니다.")
+    
+    logger.info("--- ML 추천 시작 ---") # 로그 추가
+    logger.info(f"입력 설문: {request.model_dump()}") # 로그 추가
 
     # 1. 사용자 설문 답변을 숫자 데이터로 변환 준비
     target_light = _normalize_sunlight(request.sunlight)
@@ -120,20 +126,33 @@ def recommend_plants_with_ml(
     target_diff = request.desired_difficulty if request.desired_difficulty in ["상", "중", "하"] else exp_diff
     
     user_input = pd.DataFrame([{'difficulty': target_diff, 'light_requirement': target_light}])
+    logger.info(f"인코딩 전 DataFrame:\n{user_input}") # 로그 추가
 
     # 2. '번역기(Encoder)'로 사용자 입력을 숫자(One-Hot) 벡터로 변환
-    user_encoded = ml_encoder.transform(user_input)
-    
-    # 3. 반려동물 안전 정보(0 또는 1)를 추가하여 최종 사용자 특성 벡터 생성
+    try: # 👈 Try 추가
+        user_encoded = ml_encoder.transform(user_input)
+        logger.info(f"인코딩 후 벡터 (OneHot): {user_encoded}")
+    except Exception as e: # 👈 Except 추가
+        logger.exception("사용자 입력 인코딩 중 오류 발생!")
+        raise HTTPException(status_code=500, detail="사용자 입력 처리 오류")
+
+    # 3. 최종 특성 벡터 생성
     user_features = list(user_encoded[0]) + [1 if request.has_pets else 0]
+    logger.info(f"모델 입력 최종 특성 벡터: {user_features}")
 
     # 4. 'AI 모델'로 사용자가 어떤 그룹(클러스터)에 속하는지 예측
-    predicted_cluster = ml_model.predict([user_features])[0]
+    try: # 👈 Try 추가
+        predicted_cluster = ml_model.predict([user_features])[0]
+        logger.info(f"예측된 클러스터: {predicted_cluster}")
+    except Exception as e: # 👈 Except 추가
+        logger.exception("ML 모델 예측 중 오류 발생!")
+        raise HTTPException(status_code=500, detail="AI 추천 모델 오류")
     
     # 5. 예측된 그룹에 속한 식물 ID 목록을 맵에서 조회
     recommended_ids = cluster_map.get(str(predicted_cluster), [])
     if not recommended_ids:
         raise HTTPException(status_code=404, detail="추천할 식물을 찾지 못했습니다.")
+    logger.info(f"클러스터 {predicted_cluster}의 식물 ID 목록: {recommended_ids[:10]}...") # 로그 추가 (최대 10개)
 
     # 6. ID 목록으로 DB에서 실제 식물 상세 정보 조회
     recommended_plants = db.query(models.PlantMaster).filter(models.PlantMaster.id.in_(recommended_ids)).limit(request.limit).all()
