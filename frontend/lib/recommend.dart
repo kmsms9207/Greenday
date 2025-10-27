@@ -17,7 +17,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   final Map<String, dynamic> _answers = {
     "place": null,
     "experience": null,
-    "pets": null,
+    "has_pets": null,
   };
 
   String? _accessToken;
@@ -157,7 +157,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
         setState(() {
           if (_currentStep == 1) _answers["place"] = value;
           if (_currentStep == 2) _answers["experience"] = value;
-          if (_currentStep == 3) _answers["pets"] = value;
+          if (_currentStep == 3) _answers["has_pets"] = value;
 
           if (_currentStep < 4) _nextStep();
           if (_currentStep == 4) _startLoading();

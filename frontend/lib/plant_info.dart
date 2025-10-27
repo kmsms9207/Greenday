@@ -1,53 +1,95 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'model/plant.dart';
 import 'model/api.dart'; // 1. API 서비스 파일을 import 합니다.
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // 2. Secure Storage import
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+final _storage = const FlutterSecureStorage();
+
+Future<String> _getAccessToken() async {
+  final accessToken = await _storage.read(key: 'accessToken');
+  if (accessToken == null) {
+    throw Exception('로그인 토큰을 찾을 수 없습니다. 다시 로그인해주세요.');
+  }
+  return accessToken;
+}
 
 class PlantInfoScreen extends StatelessWidget {
+  // 2. 생성자에서 Plant 객체를 직접 받도록 수정 (이전 코드 가정)
   final Plant plant;
   const PlantInfoScreen({super.key, required this.plant});
-
-  // 3. Secure Storage 인스턴스 생성
-  final _storage = const FlutterSecureStorage();
 
   // "물 줬어요" 버튼 클릭 시 실행될 함수
   Future<void> _handleWatering(BuildContext context) async {
     try {
-      // 4. 저장된 accessToken을 읽어옵니다.
-      final accessToken = await _storage.read(key: 'accessToken');
-      if (accessToken == null) {
-        throw Exception('로그인 토큰을 찾을 수 없습니다.');
-      }
-
-      await markAsWatered(plant.id, accessToken); // 5. API 호출 시 accessToken 전달
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
+      final accessToken = await _getAccessToken();  // 토큰 받기
+      await markAsWatered(plant.id, accessToken);  // 토큰 전달
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
     }
   }
 
   // "하루 미루기" 버튼 클릭 시 실행될 함수
   Future<void> _handleSnooze(BuildContext context) async {
     try {
-      // 4. 저장된 accessToken을 읽어옵니다.
-      final accessToken = await _storage.read(key: 'accessToken');
-      if (accessToken == null) {
-        throw Exception('로그인 토큰을 찾을 수 없습니다.');
-      }
-
-      await snoozeWatering(plant.id, accessToken); // 5. API 호출 시 accessToken 전달
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')));
+      final accessToken = await _getAccessToken();  // 여기서 토큰 받기
+      await snoozeWatering(plant.id, accessToken); // 토큰 전달
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('알림 미루기 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('알림 미루기 실패: $e')));
     }
+  }
+
+  // 식물 삭제
+  Future<void> _showDeletePlantDialog(BuildContext context) async {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('식물 삭제 확인'),
+          content: const Text('정말로 이 식물을 삭제하시겠습니까?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('취소'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('삭제', style: TextStyle(color: Colors.red)),
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                // 서버 삭제
+                try {
+                  final url = Uri.parse(
+                      'https://95a27dbf8715.ngrok-free.app/plants/${plant.id}');
+                  final response = await http.delete(url);
+                  if (response.statusCode == 200) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('식물이 삭제되었습니다.')));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('삭제 실패: ${response.statusCode}')));
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text('삭제 오류: $e')));
+                }
+
+                Navigator.pop(context, true); // 이전 화면으로 돌아가기
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -58,11 +100,6 @@ class PlantInfoScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         toolbarHeight: 50,
         centerTitle: true,
-        leading: IconButton(
-          // AppBar에 뒤로가기 버튼 추가
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text.rich(
           TextSpan(
             children: [
@@ -95,15 +132,17 @@ class PlantInfoScreen extends StatelessWidget {
               children: [
                 _leftInfoTile("햇빛", plant.lightRequirement),
                 _leftInfoTile("물주기", plant.wateringType),
+                _leftInfoTile("난이도", plant.difficulty),
+                _leftInfoTile("반려동물 안전", plant.petSafe ? "안전" : "주의"),
               ],
             ),
             const SizedBox(height: 30), // 버튼 위 간격 추가
-            // "물 줬어요" 와 "하루 미루기" 버튼
+            // 3. "물 줬어요" 와 "하루 미루기" 버튼 추가
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 ElevatedButton.icon(
-                  onPressed: () => _handleWatering(context), // 6. 함수 연결
+                  onPressed: () => _handleWatering(context),
                   icon: const Icon(Icons.water_drop_outlined),
                   label: const Text("물 줬어요"),
                   style: ElevatedButton.styleFrom(
@@ -112,7 +151,7 @@ class PlantInfoScreen extends StatelessWidget {
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _handleSnooze(context), // 6. 함수 연결
+                  onPressed: () => _handleSnooze(context),
                   icon: const Icon(Icons.snooze),
                   label: const Text("하루 미루기"),
                   style: ElevatedButton.styleFrom(
@@ -130,17 +169,15 @@ class PlantInfoScreen extends StatelessWidget {
         width: double.infinity,
         height: 60,
         child: ElevatedButton(
-          onPressed: () async {
-            // TODO: Plant 수정 화면 연동
-          },
+          onPressed: () => _showDeletePlantDialog(context),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFA4B6A4),
+            backgroundColor: Colors.red[400],
             foregroundColor: Colors.white,
             shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.zero,
             ),
           ),
-          child: const Text("수정 / 삭제", style: TextStyle(fontSize: 25)),
+          child: const Text("삭제", style: TextStyle(fontSize: 25)),
         ),
       ),
     );
@@ -164,7 +201,7 @@ class PlantInfoScreen extends StatelessWidget {
                 : null,
           ),
           child: (imageUrl == null || imageUrl.isEmpty)
-              ? const Icon(Icons.camera_alt, size: 40, color: Colors.white)
+              ? const Icon(Icons.eco, size: 40, color: Colors.white)
               : null,
         ),
         const SizedBox(height: 5),
