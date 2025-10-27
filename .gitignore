@@ -6,6 +6,7 @@ backend/.env
 backend/*.log 
 backend/*.db 
 backend/greenday-firebase-credentials.json 
+backend/indexdir/
 
 # === Frontend (Flutter) === 
 frontend/build/ 

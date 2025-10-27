@@ -177,3 +177,44 @@ class VerifyCodeRequest(BaseModel):
 class UserDeleteResponse(BaseModel):
     message: str
     deleted_email: str
+
+from pydantic import BaseModel, Field, HttpUrl
+from typing import List, Optional
+from datetime import datetime
+
+# 입력 스키마
+class DiaryMediaIn(BaseModel):
+    url: HttpUrl
+    thumb_url: Optional[HttpUrl] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
+    order: int = 0
+
+class DiaryCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=120)
+    body:  str = Field(..., min_length=1)
+    media: List[DiaryMediaIn] = []
+
+class DiaryUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=120)
+    body:  Optional[str] = Field(None, min_length=1)
+    media: Optional[List[DiaryMediaIn]] = None   # 전체 교체
+
+# 출력 스키마
+class DiaryItemOut(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    cover: Optional[HttpUrl] = None
+
+class DiaryDetailOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    media: List[DiaryMediaIn] = []
+
+class DiaryListOut(BaseModel):
+    items: List[DiaryItemOut]
+    next_page: Optional[int] = None
