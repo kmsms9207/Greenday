@@ -175,7 +175,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
   // 로딩 화면
   Widget _buildLoadingScreen() {
-    _startLoading(); 
     return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -203,10 +202,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-
-        final List<Plant> recommendations = data.map<Plant>((item) {
-          return Plant.fromJson(item);
-        }).toList();
+        final List<Plant> recommendations =
+            data.map<Plant>((item) => Plant.fromJson(item)).toList();
 
         if (mounted) {
           Navigator.push(
@@ -217,8 +214,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
           );
         }
       } else {
-        print("서버 에러: ${response.statusCode}");
+        print("서버 에러 발생: ${response.statusCode}");
+        print("응답 본문: ${response.body}");
+        print("보낸 데이터: ${jsonEncode(_answers)}");
       }
+
     } catch (e) {
       print("서버 연결 실패: $e");
     }
