@@ -175,22 +175,26 @@ def get_master_plant_by_id(db: Session, plant_id: int):
     return db.query(models.PlantMaster).filter(models.PlantMaster.id == plant_id).first()
 
 def get_all_master_plants(
-    db: Session, 
-    skip: int = 0, 
-    limit: int = 100, 
-    has_pets: Optional[bool] = None
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    has_pets: Optional[bool] = None,
+    difficulty: Optional[str] = None,       # 👈 [추가] 난이도 파라미터
+    light_requirement: Optional[str] = None # 👈 [추가] 햇빛 파라미터
 ) -> List[models.PlantMaster]:
     """
-    PlantMaster 테이블에서 모든 식물 목록 조회
-    - skip, limit: 페이징
-    - has_pets: None(모두), True(반려동물 안전한 것만), False(반려동물 위험한 것만)
+    PlantMaster 테이블에서 모든 식물 목록 조회 (필터링 기능 추가)
     """
     query = db.query(models.PlantMaster)
-    
-    # 반려동물 필터링 (옵션)
+
+    # 필터링 로직 추가
     if has_pets is not None:
         query = query.filter(models.PlantMaster.pet_safe == has_pets)
-    
+    if difficulty:
+        query = query.filter(models.PlantMaster.difficulty == difficulty)
+    if light_requirement:
+        query = query.filter(models.PlantMaster.light_requirement == light_requirement)
+
     return query.offset(skip).limit(limit).all()
 
 # def search_master_plants(db: Session, q: str, skip: int = 0, limit: int = 100):

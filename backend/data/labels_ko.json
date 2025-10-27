@@ -40,7 +40,9 @@
     "gray_leaf_spot": "Gray_Leaf_Spot",
     "yellow_rust": "yellow_rust",
     "root_rot": "root_rot",
-    "edema": "edema"
+    "edema": "edema",
+    "brown_spot": "brown_spot",
+    "virus_mosaic": "virus_mosaic"
   },
   "labels": {
     "Potato___Early_Blight": "감자 겹무늬병",
@@ -50,6 +52,8 @@
     "___healthy": "정상",
     "___yellow_rust": "yellow_rust",
     "___root_rot": "root_rot",
-    "___edema": "edema"
+    "___edema": "edema",
+    "___brown_spot": "brown_spot",
+    "___virus_mosaic": "virus_mosaic"
   }
 }
