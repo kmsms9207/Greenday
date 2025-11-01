@@ -86,13 +86,17 @@ def read_all_plants(
     difficulty: Optional[str] = Query(None, enum=["상", "중", "하"]),
     light_requirement: Optional[str] = Query(None, enum=["음지", "반음지", "양지"]),
     pet_safe: Optional[bool] = Query(None),
+    sort_by: Optional[str] = Query(None, description="정렬 기준: name_ko, difficulty 등"),
+    order: Optional[str] = Query("asc", description="정렬 순서: asc (오름차순) 또는 desc (내림차순)"),
     db: Session = Depends(get_db)
 ):
     plants = crud.get_all_master_plants(
         db=db, skip=skip, limit=limit,
         difficulty=difficulty,
         light_requirement=light_requirement,
-        has_pets=pet_safe # crud 함수 파라미터 이름에 맞춤
+        has_pets=pet_safe, # crud 함수 파라미터 이름에 맞춤
+        sort_by=sort_by, # 정렬 기준 전달
+        order=order      # 정렬 순서 전달
     )
     return plants
 

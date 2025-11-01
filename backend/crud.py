@@ -180,7 +180,9 @@ def get_all_master_plants(
     limit: int = 100,
     has_pets: Optional[bool] = None,
     difficulty: Optional[str] = None,       # 👈 [추가] 난이도 파라미터
-    light_requirement: Optional[str] = None # 👈 [추가] 햇빛 파라미터
+    light_requirement: Optional[str] = None, # 👈 [추가] 햇빛 파라미터
+    sort_by: Optional[str] = None,
+    order: Optional[str] = "asc"
 ) -> List[models.PlantMaster]:
     """
     PlantMaster 테이블에서 모든 식물 목록 조회 (필터링 기능 추가)
@@ -194,6 +196,14 @@ def get_all_master_plants(
         query = query.filter(models.PlantMaster.difficulty == difficulty)
     if light_requirement:
         query = query.filter(models.PlantMaster.light_requirement == light_requirement)
+
+    if sort_by:
+        sort_column = getattr(models.PlantMaster, sort_by, None)
+        if sort_column:
+            if order.lower() == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
 
     return query.offset(skip).limit(limit).all()
 
