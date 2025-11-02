@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 import models
 import database
-from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin,chat,diary
+from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin, chat, diary, community
 
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv()) 
@@ -16,6 +17,8 @@ app = FastAPI(
     version="0.4.0"
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(plants.router)
@@ -28,6 +31,8 @@ app.include_router(media.router)
 app.include_router(remedy.router)
 app.include_router(chat.router)
 app.include_router(diary)
+app.include_router(community.router)
+
 
 @app.get("/")
 def read_root():

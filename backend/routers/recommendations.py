@@ -121,7 +121,7 @@ def recommend_plants_with_ml(
     logger.info(f"입력 설문: {request.model_dump()}") # 로그 추가
 
     # 1. 사용자 설문 답변을 숫자 데이터로 변환 준비
-    target_light = _normalize_sunlight(request.sunlight)
+    target_light = _normalize_sunlight(request.place)
     exp_diff = _normalize_experience_to_diff(request.experience)
     target_diff = request.desired_difficulty if request.desired_difficulty in ["상", "중", "하"] else exp_diff
     
@@ -137,7 +137,7 @@ def recommend_plants_with_ml(
         raise HTTPException(status_code=500, detail="사용자 입력 처리 오류")
 
     # 3. 최종 특성 벡터 생성
-    user_features = list(user_encoded[0]) + [1 if request.has_pets else 0]
+    user_features = [1 if request.has_pets else 0] + list(user_encoded[0])
     logger.info(f"모델 입력 최종 특성 벡터: {user_features}")
 
     # 4. 'AI 모델'로 사용자가 어떤 그룹(클러스터)에 속하는지 예측

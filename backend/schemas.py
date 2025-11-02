@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, HttpUrl
 from datetime import datetime
 from typing import Optional, List
 
@@ -178,9 +178,6 @@ class UserDeleteResponse(BaseModel):
     message: str
     deleted_email: str
 
-from pydantic import BaseModel, Field, HttpUrl
-from typing import List, Optional
-from datetime import datetime
 
 # 입력 스키마
 class DiaryMediaIn(BaseModel):
@@ -218,3 +215,56 @@ class DiaryDetailOut(BaseModel):
 class DiaryListOut(BaseModel):
     items: List[DiaryItemOut]
     next_page: Optional[int] = None
+
+
+# Community Models (게시판 기능)
+class CommentBase(BaseModel):
+    content: str
+
+class CommentCreate(CommentBase):
+    pass
+
+class CommentUpdate(CommentBase):
+    pass
+
+# 댓글 조회 시 사용될 스키마 (작성자 정보 포함)
+class Comment(CommentBase):
+    id: int
+    post_id: int
+    created_at: datetime
+    updated_at: datetime
+    owner: UserInfo  # ⭐️ 작성자 정보(UserInfo)를 포함시켜 앱에서 "작성자: OOO" 표시 가능
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Community: Post Schemas ---
+
+class PostBase(BaseModel):
+    title: str
+    content: Optional[str] = None
+
+class PostCreate(PostBase):
+    pass
+
+class PostUpdate(PostBase):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+# 게시글 목록 조회 시 사용될 스키마 (댓글 미포함, 속도 향상)
+class PostSimple(PostBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    owner: UserInfo # 작성자 정보
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# 게시글 상세 조회 시 사용될 스키마 (댓글 목록 포함)
+class Post(PostBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    owner: UserInfo # 작성자 정보
+    comments: List[Comment] = []  # ⭐️ 해당 게시글의 댓글 목록 포함
+
+    model_config = ConfigDict(from_attributes=True)

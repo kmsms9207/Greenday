@@ -190,8 +190,8 @@ def get_all_master_plants(
     query = db.query(models.PlantMaster)
 
     # 필터링 로직 추가
-    if has_pets is not None:
-        query = query.filter(models.PlantMaster.pet_safe == has_pets)
+    if has_pets is True:
+        query = query.filter(models.PlantMaster.pet_safe == True)
     if difficulty:
         query = query.filter(models.PlantMaster.difficulty == difficulty)
     if light_requirement:
@@ -255,3 +255,118 @@ def update_user_push_token(db: Session, user_id: int, token: str) -> models.User
         db.commit()
         db.refresh(user)
     return user
+
+# ==============================================================================
+# Community: Post CRUD (게시글)
+# ==============================================================================
+
+def create_post(db: Session, post: schemas.PostCreate, user_id: int) -> models.Post:
+    """새 게시글 생성"""
+    db_post = models.Post(
+        title=post.title,
+        content=post.content,
+        owner_id=user_id
+    )
+    db.add(db_post)
+    db.commit()
+    db.refresh(db_post)
+    return db_post
+
+def get_posts(db: Session, skip: int = 0, limit: int = 100) -> List[models.Post]:
+    """게시글 목록 조회 (최신순, 작성자 정보 포함)"""
+    return db.query(models.Post)\
+        .options(joinedload(models.Post.owner))\
+        .order_by(models.Post.created_at.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+def get_post(db: Session, post_id: int) -> Optional[models.Post]:
+    """게시글 1개 상세 조회 (작성자, 댓글 및 댓글 작성자 정보 포함)"""
+    return db.query(models.Post)\
+        .options(
+            joinedload(models.Post.owner), # 게시글 작성자
+            joinedload(models.Post.comments).joinedload(models.Comment.owner) # 댓글 및 댓글 작성자
+        )\
+        .filter(models.Post.id == post_id)\
+        .first()
+
+def update_post(db: Session, post_id: int, post_update: schemas.PostUpdate, user_id: int) -> Optional[models.Post]:
+    """게시글 수정 (작성자 본인만 가능)"""
+    db_post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    
+    if not db_post or db_post.owner_id != user_id:
+        return None # 게시글이 없거나 권한이 없음
+        
+    update_data = post_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_post, key, value)
+    
+    db_post.updated_at = datetime.now(timezone.utc) # 수정 시간 갱신
+    db.commit()
+    db.refresh(db_post)
+    return db_post
+
+def delete_post(db: Session, post_id: int, user_id: int) -> Optional[models.Post]:
+    """게시글 삭제 (작성자 본인만 가능)"""
+    db_post = db.query(models.Post).filter(models.Post.id == post_id).first()
+    
+    if not db_post or db_post.owner_id != user_id:
+        return None # 게시글이 없거나 권한이 없음
+        
+    db.delete(db_post)
+    db.commit()
+    return db_post
+
+# ==============================================================================
+# Community: Comment CRUD (댓글)
+# ==============================================================================
+
+def create_comment(db: Session, comment: schemas.CommentCreate, post_id: int, user_id: int) -> models.Comment:
+    """새 댓글 생성"""
+    db_comment = models.Comment(
+        content=comment.content,
+        post_id=post_id,
+        owner_id=user_id
+    )
+    db.add(db_comment)
+    db.commit()
+    db.refresh(db_comment)
+    return db_comment
+
+def get_comments_by_post(db: Session, post_id: int, skip: int = 0, limit: int = 100) -> List[models.Comment]:
+    """특정 게시글의 댓글 목록 조회 (작성자 정보 포함)"""
+    return db.query(models.Comment)\
+        .options(joinedload(models.Comment.owner))\
+        .filter(models.Comment.post_id == post_id)\
+        .order_by(models.Comment.created_at.asc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+def update_comment(db: Session, comment_id: int, comment_update: schemas.CommentUpdate, user_id: int) -> Optional[models.Comment]:
+    """댓글 수정 (작성자 본인만 가능)"""
+    db_comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+    
+    if not db_comment or db_comment.owner_id != user_id:
+        return None # 댓글이 없거나 권한이 없음
+    
+    update_data = comment_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_comment, key, value)
+        
+    db_comment.updated_at = datetime.now(timezone.utc) # 수정 시간 갱신
+    db.commit()
+    db.refresh(db_comment)
+    return db_comment
+
+def delete_comment(db: Session, comment_id: int, user_id: int) -> Optional[models.Comment]:
+    """댓글 삭제 (작성자 본인만 가능)"""
+    db_comment = db.query(models.Comment).filter(models.Comment.id == comment_id).first()
+    
+    if not db_comment or db_comment.owner_id != user_id:
+        return None # 댓글이 없거나 권한이 없음
+        
+    db.delete(db_comment)
+    db.commit()
+    return db_comment

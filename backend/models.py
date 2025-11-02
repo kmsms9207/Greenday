@@ -178,3 +178,39 @@ class DiaryMedia(Base):
     order = Column(Integer, default=0)               # 표시 순서
 
     post = relationship("DiaryPost", back_populates="media")
+
+# ==============================================================================
+# Community Models (게시판 기능)
+# ==============================================================================
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False, index=True) # 검색을 위해 title에도 index 추가
+    content = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    # Post 객체에서 .owner로 작성자 User 정보 접근
+    owner = relationship("User") 
+    # Post 객체에서 .comments로 댓글 목록 접근 (게시글 삭제 시 댓글도 자동 삭제)
+    comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    post_id = Column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    
+    # Comment 객체에서 .owner로 작성자 User 정보 접근
+    owner = relationship("User")
+    # Comment 객체에서 .post로 부모 Post 정보 접근
+    post = relationship("Post", back_populates="comments")
