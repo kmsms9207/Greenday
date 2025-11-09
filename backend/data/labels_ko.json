@@ -42,7 +42,8 @@
     "root_rot": "root_rot",
     "edema": "edema",
     "brown_spot": "brown_spot",
-    "virus_mosaic": "virus_mosaic"
+    "virus_mosaic": "virus_mosaic",
+    "chlorosis": "chlorosis"
   },
   "labels": {
     "Potato___Early_Blight": "감자 겹무늬병",
@@ -54,6 +55,7 @@
     "___root_rot": "root_rot",
     "___edema": "edema",
     "___brown_spot": "brown_spot",
-    "___virus_mosaic": "virus_mosaic"
+    "___virus_mosaic": "virus_mosaic",
+    "___chlorosis": "chlorosis"
   }
 }

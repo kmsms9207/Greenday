@@ -135,8 +135,9 @@ class Diagnosis(Base):
 class ChatThread(Base):
     __tablename__ = "chat_threads"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String(120), nullable=True)
+    # ★ 기본값 추가(없어서 1364 에러 발생했었음)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -144,13 +145,14 @@ class ChatMessage(Base):
     __tablename__ = "chat_messages"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     thread_id = Column(BigInteger, ForeignKey("chat_threads.id"), nullable=False, index=True)
-    role = Column(Enum("system", "user", "assistant", name="chat_role"), nullable=False)
+    role = Column(Enum("system","user","assistant", name="chat_role"), nullable=False)
     content = Column(Text, nullable=False)
     image_url = Column(String(512), nullable=True)
     provider_resp = Column(JSON, nullable=True)
     tokens_in = Column(Integer, nullable=True)
     tokens_out = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # ★ 기본값 추가(없어서 1364 에러 발생했었음)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 class DiaryPost(Base):
     __tablename__ = "diary_posts"

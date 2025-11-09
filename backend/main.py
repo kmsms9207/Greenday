@@ -1,11 +1,12 @@
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import models
 import database
-from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin, chat, diary, community
+from routers import auth, plants, recommendations, identify, encyclopedia, diagnose_v2, diagnose_v3, media, remedy, admin,chat,diary,community,diagnose_llm
 
-from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv()) 
 
 
 # 수정: database.engine을 직접 사용하도록 변경
@@ -32,6 +33,7 @@ app.include_router(remedy.router)
 app.include_router(chat.router)
 app.include_router(diary)
 app.include_router(community.router)
+app.include_router(diagnose_llm.router)
 
 
 @app.get("/")
