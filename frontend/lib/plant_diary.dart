@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'plant_diary_form.dart';
+import 'model/api.dart';
 
 class PlantDiaryScreen extends StatefulWidget {
   const PlantDiaryScreen({super.key});
@@ -9,7 +10,39 @@ class PlantDiaryScreen extends StatefulWidget {
 }
 
 class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
-  List<Map<String, String>> diaryList = []; // 저장된 일지 목록
+  List<Map<String, String>> diaryList = [];
+
+  // AI 진단 또는 사용자 작성 일지 추가
+  void addDiary({
+    String? nickname, // 사용자 작성일 경우만 nickname 사용, AI 자동 저장은 null
+    required String title, // 병명 또는 사용자 입력 제목
+    required String content, // 처리 추천 또는 사용자 입력 내용
+  }) {
+    final diaryEntry = {
+      'nickname': nickname ?? '', // AI 자동 저장이면 빈 문자열
+      'title': title,
+      'content': content,
+      'date':
+          "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2,'0')}-${DateTime.now().day.toString().padLeft(2,'0')}",
+    };
+
+    setState(() {
+      diaryList.add(diaryEntry);
+    });
+
+    // 서버 저장 시도 (안전)
+    saveDiaryToServer(diaryEntry);
+  }
+
+  Future<void> saveDiaryToServer(Map<String, String> diaryEntry) async {
+    try {
+      // TODO: 실제 서버 API 호출
+      // 예: await ApiService.saveDiary(diaryEntry);
+      print("서버 저장 호출: $diaryEntry");
+    } catch (e) {
+      print("서버 저장 실패 (무시 가능): $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,18 +79,16 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // 날짜
+                        // 날짜 표시
                         Padding(
                           padding: const EdgeInsets.only(left: 8.0),
                           child: Text(
                             "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2,'0')}-${DateTime.now().day.toString().padLeft(2,'0')}",
                             style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                                fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        // 아이콘
+                        // 일지 추가 버튼
                         ElevatedButton(
                           onPressed: () async {
                             final result = await Navigator.push(
@@ -67,16 +98,15 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                                     const PlantDiaryFormScreen(),
                               ),
                             );
+
                             if (result != null && result is Map<String, String>) {
-                              // 제목과 이름이 비어있으면 추가 안 함
                               if ((result['title'] ?? '').isNotEmpty &&
                                   (result['nickname'] ?? '').isNotEmpty) {
-                                // 저장할 때 작성 날짜 추가
-                                result['date'] =
-                                    "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2,'0')}-${DateTime.now().day.toString().padLeft(2,'0')}";
-                                setState(() {
-                                  diaryList.add(result);
-                                });
+                                addDiary(
+                                  nickname: result['nickname'],
+                                  title: result['title']!,
+                                  content: result['content'] ?? '',
+                                );
                               }
                             }
                           },
@@ -92,7 +122,7 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // 박스
+                    // 일지 목록 표시
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -108,11 +138,9 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                           : Column(
                               children: diaryList.reversed.map((diary) {
                                 return Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 4.0),
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
                                   child: InkWell(
                                     onTap: () {
-                                      // AlertDialog로 상세 보기
                                       showDialog(
                                         context: context,
                                         builder: (context) {
@@ -120,15 +148,13 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                                             title: Text(diary['title'] ?? ''),
                                             content: SingleChildScrollView(
                                               child: Column(
-                                                mainAxisSize: MainAxisSize.min,
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                      "이름: ${diary['nickname'] ?? ''}"),
+                                                  if ((diary['nickname'] ?? '').isNotEmpty)
+                                                    Text("이름: ${diary['nickname']}"),
                                                   const SizedBox(height: 4),
-                                                  Text(
-                                                      "날짜: ${diary['date'] ?? ''}"),
+                                                  Text("날짜: ${diary['date'] ?? ''}"),
                                                   const SizedBox(height: 8),
                                                   Text(diary['content'] ?? ''),
                                                 ],
@@ -146,27 +172,28 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                                       );
                                     },
                                     child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
-                                        Text(
-                                          diary['nickname'] ?? '',
-                                          style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF486B48)),
-                                        ),
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 6),
-                                          child: Text(
-                                            '|',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: Color(0xFF486B48),
+                                        if ((diary['nickname'] ?? '').isNotEmpty)
+                                          Text(
+                                            diary['nickname'] ?? '',
+                                            style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF486B48)),
+                                          ),
+                                        if ((diary['nickname'] ?? '').isNotEmpty)
+                                          const Padding(
+                                            padding:
+                                                EdgeInsets.symmetric(horizontal: 6),
+                                            child: Text(
+                                              '|',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                color: Color(0xFF486B48),
+                                              ),
                                             ),
                                           ),
-                                        ),
                                         Expanded(
                                           child: Text(
                                             diary['title'] ?? '',

@@ -5,7 +5,7 @@ class PlantDiaryFormScreen extends StatefulWidget {
 
   @override
   State<PlantDiaryFormScreen> createState() => _PlantDiaryFormScreenState();
-}
+} 
 
 class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
   final TextEditingController _nicknameController = TextEditingController();

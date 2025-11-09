@@ -127,7 +127,8 @@ class HomePage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const NotificationScreen(),
+                  // builder: (context) => const NotificationScreen(),
+                  builder: (context) => NotificationScreen(myPlants: []),
                 ),
               );
             },

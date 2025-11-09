@@ -1,52 +1,66 @@
 import 'package:flutter/material.dart';
-import 'model/api.dart'; // 1. API 서비스 파일을 import 합니다.
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // 2. Secure Storage import
+import 'model/plant.dart';
+import 'model/api.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'plant_info.dart';
 
-class NotificationScreen extends StatelessWidget {
-  const NotificationScreen({super.key});
+class NotificationScreen extends StatefulWidget {
+  final List<Plant> myPlants;
+  const NotificationScreen({super.key, required this.myPlants});
 
-  // 3. Secure Storage 인스턴스 생성
+  @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
+
+class _NotificationScreenState extends State<NotificationScreen> {
   final _storage = const FlutterSecureStorage();
 
-  // "물 줬어요" 버튼 클릭 시 실행될 함수
-  Future<void> _handleWatering(BuildContext context, int plantId) async {
-    try {
-      // 4. 저장된 accessToken을 읽어옵니다.
-      final accessToken = await _storage.read(key: 'accessToken');
-      if (accessToken == null) {
-        throw Exception('로그인 토큰을 찾을 수 없습니다.');
-      }
+  // 버튼이 사라질 알림 ID를 저장
+  final Set<int> _wateredOrSnoozedNotifications = {};
 
-      await markAsWatered(plantId, accessToken); // 5. API 호출 시 accessToken 전달
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
-      // TODO: 성공 시 알림 목록에서 해당 알림을 제거하거나 상태를 변경하는 로직 추가
+  Future<String> _getAccessToken() async {
+    final accessToken = await _storage.read(key: 'accessToken');
+    if (accessToken == null) {
+      throw Exception('로그인 토큰을 찾을 수 없습니다.');
+    }
+    return accessToken;
+  }
+
+  // 물 줬어요 버튼
+  Future<void> _handleWatering(int notificationId, int plantId) async {
+    setState(() {
+      _wateredOrSnoozedNotifications.add(notificationId);
+    });
+
+    try {
+      final accessToken = await _getAccessToken();
+      await markAsWatered(plantId, accessToken);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('물주기 기록 완료!')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('물주기 기록 실패: $e')),
+      );
     }
   }
 
-  // "하루 미루기" 버튼 클릭 시 실행될 함수
-  Future<void> _handleSnooze(BuildContext context, int plantId) async {
-    try {
-      // 4. 저장된 accessToken을 읽어옵니다.
-      final accessToken = await _storage.read(key: 'accessToken');
-      if (accessToken == null) {
-        throw Exception('로그인 토큰을 찾을 수 없습니다.');
-      }
+  // 하루 미루기 버튼
+  Future<void> _handleSnooze(int notificationId, int plantId) async {
+    setState(() {
+      _wateredOrSnoozedNotifications.add(notificationId);
+    });
 
-      await snoozeWatering(plantId, accessToken); // 5. API 호출 시 accessToken 전달
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')));
-      // TODO: 성공 시 알림 목록에서 해당 알림을 제거하거나 상태를 변경하는 로직 추가
+    try {
+      final accessToken = await _getAccessToken();
+      await snoozeWatering(plantId, accessToken);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('알림 미루기 실패: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('알림 미루기 실패: $e')),
+      );
     }
   }
 
@@ -54,41 +68,16 @@ class NotificationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFFA4B6A4);
 
-    // 더미 데이터 수정: 물주기 알림 예시 추가 (type, plantId 포함)
-    final List<Map<String, dynamic>> notifications = [
-      {
-        'id': 1,
+    // myPlants 기반으로 물주기 알림 생성
+    final List<Map<String, dynamic>> notifications = widget.myPlants.map((plant) {
+      return {
+        'id': plant.id,
         'type': 'watering',
-        'plantId': 101,
-        'title': '몬스테라 물 줄 시간이에요!',
-        'time': '30분 전',
-      },
-      {
-        'id': 2,
-        'type': 'growth_log',
-        'title': '새로운 성장일지가 등록되었습니다.',
-        'time': '1시간 전',
-      },
-      {
-        'id': 3,
-        'type': 'comment',
-        'title': '댓글에 답글이 달렸습니다: "예쁘게 잘 키우셨네요!"',
-        'time': '3시간 전',
-      },
-      {
-        'id': 4,
-        'type': 'like',
-        'title': '회원님의 게시글을 다른 사람이 좋아합니다.',
-        'time': '1일 전',
-      },
-      {'id': 5, 'type': 'notice', 'title': '새로운 공지사항을 확인해보세요.', 'time': '2일 전'},
-      {
-        'id': 6,
-        'type': 'event',
-        'title': '[이벤트] 식물 사진 콘테스트가 시작되었습니다!',
-        'time': '5일 전',
-      },
-    ];
+        'plantId': plant.id,
+        'title': '${plant.nameKo} 물 줄 시간이에요!',
+        'time': '지금',
+      };
+    }).toList();
 
     return Scaffold(
       backgroundColor: primaryColor,
@@ -127,90 +116,59 @@ class NotificationScreen extends StatelessWidget {
                     itemCount: notifications.length,
                     itemBuilder: (context, index) {
                       final notification = notifications[index];
-                      final bool isWateringNotification =
-                          notification['type'] == 'watering';
+                      final bool showButtons = !_wateredOrSnoozedNotifications.contains(notification['id']);
+                      final bool isWateringNotification = notification['type'] == 'watering';
 
                       return ListTile(
-                        leading: _getLeadingIcon(
-                          notification['type'] as String?,
-                        ),
+                        leading: const Icon(Icons.water_drop_outlined, color: Colors.blue),
                         title: Text(notification['title'] as String),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(notification['time'] as String),
-                            // 2. 물주기 알림일 경우 버튼들을 추가합니다.
-                            if (isWateringNotification)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    ElevatedButton(
-                                      // 6. 함수 연결
-                                      onPressed: () => _handleWatering(
-                                        context,
-                                        notification['plantId'] as int,
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 4,
-                                        ),
-                                        minimumSize: Size.zero, // 최소 크기 제한 제거
-                                        tapTargetSize: MaterialTapTargetSize
-                                            .shrinkWrap, // 터치 영역 최소화
-                                        backgroundColor: Colors.blue[50],
-                                        foregroundColor: Colors.blue[700],
-                                      ),
-                                      child: const Text(
-                                        '물 줬어요',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
+                        subtitle: showButtons && isWateringNotification
+                            ? Row(
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: () => _handleWatering(notification['id'] as int, notification['plantId'] as int),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue[50],
+                                      foregroundColor: Colors.blue[700],
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                     ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      // 6. 함수 연결
-                                      onPressed: () => _handleSnooze(
-                                        context,
-                                        notification['plantId'] as int,
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 4,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        backgroundColor: Colors.orange[50],
-                                        foregroundColor: Colors.orange[700],
-                                      ),
-                                      child: const Text(
-                                        '하루 미루기',
-                                        style: TextStyle(fontSize: 12),
-                                      ),
+                                    child: const Text('물 줬어요', style: TextStyle(fontSize: 12)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    onPressed: () => _handleSnooze(notification['id'] as int, notification['plantId'] as int),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.orange[50],
+                                      foregroundColor: Colors.orange[700],
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                     ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
+                                    child: const Text('하루 미루기', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ],
+                              )
+                            : null,
                         onTap: () {
-                          // TODO: 각 알림을 눌렀을 때 해당 상세 페이지로 이동
+                          // 클릭하면 해당 식물 정보 화면으로 이동
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PlantInfoScreen(
+                                plant: widget.myPlants.firstWhere((p) => p.id == notification['plantId']),
+                              ),
+                            ),
+                          );
                         },
                       );
                     },
-                    separatorBuilder: (context, index) {
-                      // 각 알림 사이에 희미한 회색 구분선 추가
-                      return Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: Colors.grey[200],
-                        indent: 16,
-                        endIndent: 16,
-                      );
-                    },
+                    separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Colors.grey[200],
+                      indent: 16,
+                      endIndent: 16,
+                    ),
                   ),
                 ),
               ],
@@ -219,25 +177,5 @@ class NotificationScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  // 알림 타입에 따라 다른 아이콘을 반환하는 함수
-  Widget _getLeadingIcon(String? type) {
-    switch (type) {
-      case 'watering':
-        return const Icon(Icons.water_drop_outlined, color: Colors.blue);
-      case 'growth_log':
-        return const Icon(Icons.note_alt_outlined, color: Colors.green);
-      case 'comment':
-        return const Icon(Icons.comment_outlined, color: Colors.orange);
-      case 'like':
-        return const Icon(Icons.favorite_border, color: Colors.redAccent);
-      case 'notice':
-        return const Icon(Icons.campaign_outlined, color: Colors.purple);
-      case 'event':
-        return const Icon(Icons.celebration_outlined, color: Colors.teal);
-      default:
-        return const Icon(Icons.notifications_none, color: Color(0xFF486B48));
-    }
   }
 }

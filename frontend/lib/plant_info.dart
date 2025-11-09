@@ -159,8 +159,16 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
               children: [
                 _leftInfoTile("햇빛", _plant!.lightRequirement),
                 _leftInfoTile("물주기", _plant!.wateringType),
+                /*
+                lastWateredAt 추가
+                _leftInfoTile("물 준 날",
+                  _plant!.lastWateredAt != null
+                      ? _plant!.lastWateredAt
+                      : "정보 없음"),
+                */
                 _leftInfoTile("난이도", _plant!.difficulty),
                 _leftInfoTile("반려동물 안전", _plant!.petSafe ? "안전" : "주의"),
+
               ],
             ),
             const SizedBox(height: 30),
