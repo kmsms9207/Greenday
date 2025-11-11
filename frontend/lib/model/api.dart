@@ -8,7 +8,7 @@ import 'diagnosis_model.dart';
 import 'remedy_model.dart';
 
 // ---------------------- 설정 ----------------------
-const String baseUrl = "https://33ec24b88e40.ngrok-free.app";
+const String baseUrl = "https://44b53210b0ea.ngrok-free.app";
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
@@ -20,19 +20,42 @@ Future<String> _getAccessToken() async {
 }
 
 // ---------------------- 백과사전 ----------------------
-Future<List<Plant>> fetchPlantList({String? query}) async {
-  String url = '$baseUrl/encyclopedia/';
+Future<List<Plant>> fetchPlantList({
+  String? query,
+  String? sortBy,
+  String order = 'asc', // 기본 오름차순
+}) async {
+  final queryParams = <String, String>{};
+
+  // 검색어 있으면 검색 API 사용
+  late Uri uri;
   if (query != null && query.isNotEmpty) {
-    final encodedQuery = Uri.encodeComponent(query);
-    url += '?search=$encodedQuery';
+    queryParams['q'] = query;
+    uri = Uri.parse(
+      '$baseUrl/encyclopedia/search',
+    ).replace(queryParameters: queryParams);
   }
-  final response = await http.get(Uri.parse(url));
+  // 검색어 없으면 일반 백과사전 API 사용 + 정렬 적용
+  else {
+    if (sortBy != null && sortBy.isNotEmpty) {
+      queryParams['sort_by'] = sortBy;
+      queryParams['order'] = order;
+    }
+    uri = Uri.parse(
+      '$baseUrl/encyclopedia/',
+    ).replace(queryParameters: queryParams);
+  }
+
+  print('📡 요청 URL: $uri');
+
+  final response = await http.get(uri);
 
   if (response.statusCode == 200) {
     final String responseBody = utf8.decode(response.bodyBytes);
     final List<dynamic> jsonList = jsonDecode(responseBody);
     return jsonList.map((json) => Plant.fromJson(json)).toList();
   } else {
+    print('❌ 오류: ${response.body}');
     throw Exception('API 호출 실패: ${response.statusCode}');
   }
 }
@@ -291,7 +314,6 @@ Future<RemedyAdvice> fetchRemedy(String diseaseKey) async {
 
 Future<Plant> fetchMyPlantDetail(int plantId) async {
   final accessToken = await _getAccessToken();
-  // ★★★ 작업 지시서 3번 항목: GET /plants/{plant_id} ★★★
   final url = Uri.parse('$baseUrl/plants/$plantId');
 
   final response = await http.get(
@@ -301,7 +323,6 @@ Future<Plant> fetchMyPlantDetail(int plantId) async {
 
   if (response.statusCode == 200) {
     final data = jsonDecode(utf8.decode(response.bodyBytes));
-    // ★★★ 이전에 수정한 Plant.fromJson을 그대로 사용합니다 ★★★
     return Plant.fromJson(data);
   } else if (response.statusCode == 404) {
     throw Exception('식물을 찾을 수 없거나 권한이 없습니다.');

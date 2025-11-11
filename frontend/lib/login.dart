@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _storage = const FlutterSecureStorage();
 
   Future<void> attemptLogin() async {
-    const String apiUrl = "https://33ec24b88e40.ngrok-free.app/auth/login";
+    const String apiUrl = "https://44b53210b0ea.ngrok-free.app/auth/login";
 
     try {
       // 1. 로그인 API는 JSON이 아닌 Form-urlencoded 방식을 사용합니다.
