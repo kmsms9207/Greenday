@@ -74,3 +74,25 @@ async def openai_chat_complete(
         "usage": resp.get("usage"),
         "finish_reason": resp.get("choices", [{}])[0].get("finish_reason"),
     }
+
+async def get_openai_vision_response(
+    *,
+    settings=None,        # 호환성용 파라미터 (미사용해도 OK)
+    messages,
+    max_tokens: int = None,
+):
+    """
+    GPT-4o(vision) 호출 후 '원본 OpenAI 응답 JSON'을 반환합니다.
+    diagnose_llm.py가 이 형태를 기대합니다.
+    """
+    # openai_chat_complete는 가공된 dict를 돌려주므로,
+    # 여기서는 원본 JSON을 위해 내부 POST를 직접 호출합니다.
+    model = OPENAI_MODEL_VISION
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": OPENAI_TEMPERATURE,
+        "max_tokens": OPENAI_MAX_TOKENS if max_tokens is None else max_tokens,
+    }
+    resp_json = await _post_chat_completions(payload)
+    return resp_json

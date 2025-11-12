@@ -370,3 +370,123 @@ def delete_comment(db: Session, comment_id: int, user_id: int) -> Optional[model
     db.delete(db_comment)
     db.commit()
     return db_comment
+
+# ==============================================================================
+# Diary (성장 일지 - 이벤트 로그 방식)
+# ==============================================================================
+
+def create_diary_log(
+    db: Session, 
+    plant_id: int, 
+    log_type: str, # 'WATERING', 'DIAGNOSIS', 'BIRTHDAY' 등
+    log_message: Optional[str] = None,
+    image_url: Optional[str] = None,
+    reference_id: Optional[int] = None
+) -> models.Diary:
+    """
+    [자동 기록용] 시스템 이벤트(물주기, 진단 등)를 Diary에 기록합니다.
+    """
+    db_diary_log = models.Diary(
+        plant_id=plant_id,
+        log_type=log_type,
+        log_message=log_message,
+        image_url=image_url,
+        reference_id=reference_id
+    )
+    db.add(db_diary_log)
+    db.commit()
+    db.refresh(db_diary_log)
+    return db_diary_log
+
+def create_manual_diary_entry(
+    db: Session, 
+    plant_id: int, 
+    entry: schemas.DiaryCreateManual, 
+    user_id: int
+) -> Optional[models.Diary]:
+    """
+    [수동 기록용] 사용자가 직접 메모(NOTE)나 사진(PHOTO)을 Diary에 기록합니다.
+    """
+    # 1. 식물의 소유권 확인
+    plant = db.query(models.Plant).filter(models.Plant.id == plant_id).first()
+    if not plant or plant.owner_id != user_id:
+        return None # 식물이 없거나 내 식물이 아님
+
+    # 2. 로그 타입 결정 (사진 우선)
+    log_type = "NOTE"
+    if entry.image_url:
+        log_type = "PHOTO"
+
+    return create_diary_log(
+        db=db,
+        plant_id=plant_id,
+        log_type=log_type,
+        log_message=entry.log_message,
+        image_url=entry.image_url
+    )
+
+def get_diaries_by_plant(db: Session, plant_id: int, user_id: int, skip: int = 0, limit: int = 100) -> List[models.Diary]:
+    """특정 식물의 전체 일지 목록을 최신순으로 조회합니다."""
+    # 식물 소유권 확인
+    plant = db.query(models.Plant).filter(models.Plant.id == plant_id).first()
+    if not plant or plant.owner_id != user_id:
+        return [] # 빈 리스트 반환
+
+    return db.query(models.Diary)\
+        .filter(models.Diary.plant_id == plant_id)\
+        .order_by(models.Diary.created_at.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
+
+def get_diary_entry(db: Session, diary_id: int, user_id: int) -> Optional[models.Diary]:
+    """특정 일지 항목 1개를 조회합니다."""
+    db_diary = db.query(models.Diary).filter(models.Diary.id == diary_id).first()
+    if not db_diary:
+        return None
+    
+    # 식물 소유권 확인
+    plant = db_diary.plant
+    if plant.owner_id != user_id:
+        return None
+
+    return db_diary
+
+def update_manual_diary_entry(
+    db: Session, 
+    diary_id: int, 
+    entry_update: schemas.DiaryCreateManual, 
+    user_id: int
+) -> Optional[models.Diary]:
+    """'수동'으로 작성된 일지(NOTE, PHOTO)만 수정합니다."""
+    db_diary = get_diary_entry(db=db, diary_id=diary_id, user_id=user_id)
+    
+    # 일지가 없거나, 소유권이 없거나, 자동 로그(WATERING 등)이면 수정 불가
+    if not db_diary or db_diary.log_type not in ['NOTE', 'PHOTO']:
+        return None
+
+    update_data = entry_update.model_dump(exclude_unset=True)
+    
+    # 로그 타입 재설정 (사진이 추가/삭제되었을 수 있으므로)
+    db_diary.log_type = "NOTE"
+    if update_data.get("image_url", db_diary.image_url): # 기존 이미지 URL도 확인
+        db_diary.log_type = "PHOTO"
+        
+    db_diary.log_message = update_data.get("log_message", db_diary.log_message)
+    db_diary.image_url = update_data.get("image_url", db_diary.image_url)
+    
+    db.commit()
+    db.refresh(db_diary)
+    return db_diary
+
+def delete_manual_diary_entry(db: Session, diary_id: int, user_id: int) -> Optional[models.Diary]:
+    """'수동'으로 작성된 일지(NOTE, PHOTO)만 삭제합니다."""
+    db_diary = get_diary_entry(db=db, diary_id=diary_id, user_id=user_id)
+    
+    # 일지가 없거나, 소유권이 없거나, 자동 로그(WATERING 등)이면 삭제 불가
+    if not db_diary or db_diary.log_type not in ['NOTE', 'PHOTO']:
+        return None
+        
+    db.delete(db_diary)
+    db.commit()
+    return db_diary

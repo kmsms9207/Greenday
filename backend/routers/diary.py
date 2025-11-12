@@ -1,123 +1,91 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+# routers/diary.py (새로운 전체 코드)
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import List
 
-import models, schemas
+import crud
+import schemas
+import models
 from database import get_db
-from dependencies import get_current_user  # 인증 의존성 (반드시 로그인 필요)
+from dependencies import get_current_user
 
-router = APIRouter(prefix="/diary", tags=["Diary"])
+router = APIRouter(
+    prefix="/diary",
+    tags=["Diary (Event Log)"],
+    dependencies=[Depends(get_current_user)]
+)
 
-# 소유자 권한 체크 헬퍼
-def _get_owned_post_or_404(db: Session, post_id: int, user_id: int) -> models.DiaryPost:
-    post = (
-        db.query(models.DiaryPost)
-        .filter(models.DiaryPost.id == post_id, models.DiaryPost.owner_id == user_id)
-        .first()
+@router.post("/{plant_id}/manual", response_model=schemas.Diary, status_code=status.HTTP_201_CREATED)
+def create_manual_diary(
+    plant_id: int,
+    entry: schemas.DiaryCreateManual,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    ### 수동 성장 일지 작성 (메모 또는 사진)
+    - `log_message`만 보내면 'NOTE' 타입으로, `image_url`을 보내면 'PHOTO' 타입으로 자동 저장됩니다.
+    - **인증**: 필수
+    """
+    db_diary = crud.create_manual_diary_entry(
+        db=db, plant_id=plant_id, entry=entry, user_id=current_user.id
     )
-    if not post:
-        raise HTTPException(status_code=404, detail="일지를 찾을 수 없거나 접근 권한이 없습니다.")
-    return post
+    if db_diary is None:
+        raise HTTPException(status_code=404, detail="식물을 찾을 수 없거나 소유자가 아닙니다.")
+    return db_diary
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-def create_post(
-    req: schemas.DiaryCreate,
+@router.get("/{plant_id}", response_model=List[schemas.Diary])
+def read_diaries_for_plant(
+    plant_id: int,
+    skip: int = 0,
+    limit: int = 50,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user)
 ):
-    post = models.DiaryPost(owner_id=user.id, title=req.title, body=req.body)
-    db.add(post); db.flush()
-
-    # media 삽입
-    for m in req.media:
-        db.add(models.DiaryMedia(
-            post_id=post.id, url=str(m.url),
-            thumb_url=str(m.thumb_url) if m.thumb_url else None,
-            width=m.width, height=m.height, order=m.order
-        ))
-    db.commit(); db.refresh(post)
-
-    return {"id": post.id, "created_at": post.created_at}
-
-@router.get("", response_model=schemas.DiaryListOut)
-def list_posts(
-    q: Optional[str] = Query(None, description="제목/본문 검색어"),
-    page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
-):
-    query = db.query(models.DiaryPost).filter(models.DiaryPost.owner_id == user.id)
-    if q:
-        like = f"%{q}%"
-        query = query.filter((models.DiaryPost.title.ilike(like)) | (models.DiaryPost.body.ilike(like)))
-
-    query = query.order_by(models.DiaryPost.created_at.desc())
-    items = query.limit(size).offset((page - 1) * size).all()
-
-    # cover(썸네일) 계산
-    result = []
-    for p in items:
-        cover = None
-        if p.media:
-            cover = p.media[0].thumb_url or p.media[0].url
-        result.append(
-            schemas.DiaryItemOut(id=p.id, title=p.title, created_at=p.created_at, cover=cover)
-        )
-
-    next_page = page + 1 if len(items) == size else None
-    return schemas.DiaryListOut(items=result, next_page=next_page)
-
-@router.get("/{post_id}", response_model=schemas.DiaryDetailOut)
-def get_detail(
-    post_id: int,
-    db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
-):
-    post = _get_owned_post_or_404(db, post_id, user.id)
-    media = [
-        schemas.DiaryMediaIn(
-            url=m.url, thumb_url=m.thumb_url, width=m.width, height=m.height, order=m.order
-        ) for m in post.media
-    ]
-    return schemas.DiaryDetailOut(
-        id=post.id, title=post.title, body=post.body,
-        created_at=post.created_at, updated_at=post.updated_at, media=media
+    """
+    ### 특정 식물의 전체 성장 일지(타임라인) 조회
+    - '물주기', '진단', '수동 메모' 등 모든 기록이 최신순으로 반환됩니다.
+    - **인증**: 필수
+    """
+    diaries = crud.get_diaries_by_plant(
+        db=db, plant_id=plant_id, user_id=current_user.id, skip=skip, limit=limit
     )
+    return diaries
 
-@router.patch("/{post_id}")
-def update_post(
-    post_id: int,
-    req: schemas.DiaryUpdate,
+@router.put("/{diary_id}/manual", response_model=schemas.Diary)
+def update_manual_diary(
+    diary_id: int,
+    entry_update: schemas.DiaryCreateManual,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user)
 ):
-    post = _get_owned_post_or_404(db, post_id, user.id)
+    """
+    ### 수동 작성 일지(메모/사진) 수정
+    - **'수동'**으로 작성한 `NOTE` 또는 `PHOTO` 타입의 일지만 수정 가능합니다.
+    - '자동'으로 기록된 물주기, 진단 로그는 수정할 수 없습니다.
+    - **인증**: 필수 (작성자 본인만 가능)
+    """
+    db_diary = crud.update_manual_diary_entry(
+        db=db, diary_id=diary_id, entry_update=entry_update, user_id=current_user.id
+    )
+    if db_diary is None:
+        raise HTTPException(status_code=403, detail="수정 권한이 없거나, 자동 로그는 수정할 수 없습니다.")
+    return db_diary
 
-    if req.title is not None:
-        post.title = req.title
-    if req.body is not None:
-        post.body = req.body
-
-    if req.media is not None:
-        # 전체 교체
-        db.query(models.DiaryMedia).filter(models.DiaryMedia.post_id == post.id).delete()
-        for m in req.media:
-            db.add(models.DiaryMedia(
-                post_id=post.id, url=str(m.url),
-                thumb_url=str(m.thumb_url) if m.thumb_url else None,
-                width=m.width, height=m.height, order=m.order
-            ))
-
-    db.commit()
-    return {"ok": True}
-
-@router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(
-    post_id: int,
+@router.delete("/{diary_id}/manual", status_code=status.HTTP_204_NO_CONTENT)
+def delete_manual_diary(
+    diary_id: int,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_current_user)
 ):
-    post = _get_owned_post_or_404(db, post_id, user.id)
-    db.delete(post); db.commit()
+    """
+    ### 수동 작성 일지(메모/사진) 삭제
+    - **'수동'**으로 작성한 `NOTE` 또는 `PHOTO` 타입의 일지만 삭제 가능합니다.
+    - '자동'으로 기록된 물주기, 진단 로그는 삭제할 수 없습니다.
+    - **인증**: 필수 (작성자 본인만 가능)
+    """
+    db_diary = crud.delete_manual_diary_entry(db=db, diary_id=diary_id, user_id=current_user.id)
+    if db_diary is None:
+        raise HTTPException(status_code=403, detail="삭제 권한이 없거나, 자동 로그는 삭제할 수 없습니다.")
     return

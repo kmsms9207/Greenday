@@ -46,6 +46,8 @@ class Plant(Base):
     notification_time = Column(String(5), nullable=True, default="09:00")
     notification_snoozed_until = Column(Date, nullable=True)
 
+    diaries = relationship("Diary", back_populates="plant", cascade="all, delete-orphan")
+
 class PlantMaster(Base):
     __tablename__ = "plants_master"
 
@@ -154,32 +156,35 @@ class ChatMessage(Base):
     # ★ 기본값 추가(없어서 1364 에러 발생했었음)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
-class DiaryPost(Base):
-    __tablename__ = "diary_posts"
+# ==============================================================================
+# Diary Models 
+# ==============================================================================
 
-    id = Column(Integer, primary_key=True)
-    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+class Diary(Base):
+    __tablename__ = "diaries"
 
-    title = Column(String(120), nullable=False)
-    body  = Column(Text, nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    plant_id = Column(Integer, ForeignKey("plants.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    created_at = Column(DateTime, server_default=func.now(), index=True)
-    updated_at = Column(DateTime, onupdate=func.now())
+    # [신규] 이벤트 유형 (Enum으로 관리)
+    # 💧 WATERING: 물주기 (자동)
+    # 🩺 DIAGNOSIS: 병해충 진단 (자동)
+    # 🎂 BIRTHDAY: 식물 등록 (자동)
+    # 📝 NOTE: 수동 메모 (수동)
+    # 📸 PHOTO: 수동 사진 (수동)
+    log_type = Column(Enum('WATERING', 'DIAGNOSIS', 'BIRTHDAY', 'NOTE', 'PHOTO', name='diary_log_type_enum'), nullable=False)
+    
+    # [신규] 이벤트 상세 메시지 (예: "물을 주었습니다.", "흰가루병 진단", "새 잎이 났어요!")
+    log_message = Column(Text, nullable=True)
+    
+    # [신규] 수동 사진/메모용 이미지 URL (PHOTO 타입일 때 사용)
+    image_url = Column(String(512), nullable=True)
 
-    media = relationship("DiaryMedia", back_populates="post", cascade="all, delete-orphan", order_by="DiaryMedia.order")
+    # [신규] 참조 ID (예: DIAGNOSIS 타입일 때 diagnoses 테이블의 ID)
+    reference_id = Column(Integer, nullable=True, index=True)
 
-class DiaryMedia(Base):
-    __tablename__ = "diary_media"
-
-    id = Column(Integer, primary_key=True)
-    post_id = Column(Integer, ForeignKey("diary_posts.id", ondelete="CASCADE"), index=True, nullable=False)
-    url = Column(String(512), nullable=False)        # 최종 접근 URL
-    thumb_url = Column(String(512), nullable=True)   # 썸네일(없으면 url 사용)
-    width = Column(Integer)
-    height = Column(Integer)
-    order = Column(Integer, default=0)               # 표시 순서
-
-    post = relationship("DiaryPost", back_populates="media")
+    plant = relationship("Plant", back_populates="diaries")
 
 # ==============================================================================
 # Community Models (게시판 기능)

@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List # List 타입을 명시적으로 import
+import logging
 
 import schemas, models, crud
 from database import get_db
 from dependencies import get_current_user # 수정: dependencies에서 get_current_user를 가져옵니다.
 
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/plants",
     tags=["Plants"],
@@ -31,6 +33,17 @@ def create_plant_for_user(
         species=master_plant.species,
         plant_master_id=master_plant.id
     )
+
+    try:
+        crud.create_diary_log(
+            db=db,
+            plant_id=new_plant.id,
+            log_type="BIRTHDAY", # 👈 '생일' 타입
+            log_message=f"'{new_plant.name}'와(과) 함께하기 시작했습니다."
+        )
+    except Exception as e:
+        logger.error(f"생일 일지 기록 실패 (Plant ID: {new_plant.id}): {e}")
+
     # [신규] 응답 스키마에 master_image_url을 채워주기 위한 로직
     result = schemas.Plant.model_validate(new_plant)
     result.master_image_url = master_plant.image_url
@@ -127,6 +140,15 @@ def record_watering(
         raise HTTPException(status_code=403, detail="Not authorized to update this plant")
     
     crud.update_last_watered_at(db, plant_id=plant_id)
+    try:
+        crud.create_diary_log(
+            db=db,
+            plant_id=plant_id,
+            log_type="WATERING", # 👈 '물주기' 타입
+            log_message="물을 주었습니다."
+        )
+    except Exception as e:
+        logger.error(f"물주기 일지 기록 실패 (Plant ID: {plant_id}): {e}")
     return
 
 @router.post(

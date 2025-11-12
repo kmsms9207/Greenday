@@ -111,6 +111,18 @@ class PlantCreateRequest(BaseModel):
     family: Optional[str] = None
 
 
+# media 업로드 응답 스키마
+class MediaUploadResponse(BaseModel):
+    image_id: int
+    image_url: str
+    thumb_url: str
+    content_type: str
+    width: int
+    height: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 # AI 진단 응답 스키마
 class DiagnosisResult(BaseModel):
     label: str # 예: 'Tomato___Late_blight'
@@ -122,6 +134,19 @@ class DiagnosisResult(BaseModel):
     plant_ko: str         # 예: "감자"
     disease_ko: str       # 예: "겹무늬병"
     label_ko: str         # 예: "감자 겹무늬병" 또는 "감자 정상"
+
+class DiagnosisLLMRequest(BaseModel):
+    image_url: str
+    prompt_key: str = "default"
+
+class DiagnosisLLMResponse(BaseModel):
+    disease_key: str
+    disease_ko: str
+    reason_ko: str
+    score: float
+    severity: str
+
+    guide: Optional["RemedyAdvice"] = None
 
 class RemedyRequest(BaseModel):
     disease_key: str              # 예: "powdery_mildew"
@@ -179,42 +204,27 @@ class UserDeleteResponse(BaseModel):
     deleted_email: str
 
 
-# 입력 스키마
-class DiaryMediaIn(BaseModel):
-    url: HttpUrl
-    thumb_url: Optional[HttpUrl] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    order: int = 0
-
-class DiaryCreate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=120)
-    body:  str = Field(..., min_length=1)
-    media: List[DiaryMediaIn] = []
-
-class DiaryUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=1, max_length=120)
-    body:  Optional[str] = Field(None, min_length=1)
-    media: Optional[List[DiaryMediaIn]] = None   # 전체 교체
-
-# 출력 스키마
-class DiaryItemOut(BaseModel):
+# --- diary Scheams ---
+# [신규] 일지 목록 조회 시 반환될 응답 스키마
+class Diary(BaseModel):
     id: int
-    title: str
+    plant_id: int
     created_at: datetime
-    cover: Optional[HttpUrl] = None
+    log_type: str # 👈 프론트엔드가 아이콘 구분을 위해 사용
+    log_message: Optional[str] = None
+    image_url: Optional[str] = None
+    reference_id: Optional[int] = None
 
-class DiaryDetailOut(BaseModel):
-    id: int
-    title: str
-    body: str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    media: List[DiaryMediaIn] = []
+    model_config = ConfigDict(from_attributes=True)
 
-class DiaryListOut(BaseModel):
-    items: List[DiaryItemOut]
-    next_page: Optional[int] = None
+# [신규] 사용자가 '수동 메모/사진'을 작성할 때 사용할 입력 스키마
+class DiaryCreateManual(BaseModel):
+    # 📝 NOTE 타입일 때 사용
+    log_message: Optional[str] = None
+    
+    # 📸 PHOTO 타입일 때 사용 (우선 URL로 받음)
+    # (추후 media.py와 연동하여 파일 업로드로 변경 가능)
+    image_url: Optional[str] = None
 
 
 # Community Models (게시판 기능)
