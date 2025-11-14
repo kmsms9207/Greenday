@@ -18,6 +18,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   // 버튼이 사라질 알림 ID를 저장
   final Set<int> _wateredOrSnoozedNotifications = {};
 
+  // 로컬에서 화면용으로 마지막 물 준 시간 저장
+  final Map<int, DateTime> _tempLastWateredAt = {};
+
   Future<String> _getAccessToken() async {
     final accessToken = await _storage.read(key: 'accessToken');
     if (accessToken == null) {
@@ -26,15 +29,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return accessToken;
   }
 
-  // 물 줬어요 버튼
+  // ---------------- 물 줬어요 버튼 ----------------
   Future<void> _handleWatering(int notificationId, int plantId) async {
-    setState(() {
-      _wateredOrSnoozedNotifications.add(notificationId);
-    });
-
     try {
       final accessToken = await _getAccessToken();
       await markAsWatered(plantId, accessToken);
+
+      setState(() {
+        _wateredOrSnoozedNotifications.add(notificationId);
+        _tempLastWateredAt[plantId] = DateTime.now(); // 화면용 갱신
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('물주기 기록 완료!')),
       );
@@ -45,15 +50,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  // 하루 미루기 버튼
+  // ---------------- 하루 미루기 버튼 ----------------
   Future<void> _handleSnooze(int notificationId, int plantId) async {
-    setState(() {
-      _wateredOrSnoozedNotifications.add(notificationId);
-    });
-
     try {
       final accessToken = await _getAccessToken();
       await snoozeWatering(plantId, accessToken);
+
+      setState(() {
+        _wateredOrSnoozedNotifications.add(notificationId);
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')),
       );
@@ -70,11 +76,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     // myPlants 기반으로 물주기 알림 생성
     final List<Map<String, dynamic>> notifications = widget.myPlants.map((plant) {
+      // 화면에 표시할 마지막 물 준 시간
+      String lastWateredText = _tempLastWateredAt.containsKey(plant.id)
+          ? '마지막 물 준 시간: ${_formatDateTime(_tempLastWateredAt[plant.id]!)}'
+          : '';
+
       return {
         'id': plant.id,
         'type': 'watering',
         'plantId': plant.id,
         'title': '${plant.nameKo} 물 줄 시간이에요!',
+        'lastWateredText': lastWateredText,
         'time': '지금',
       };
     }).toList();
@@ -121,12 +133,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
                       return ListTile(
                         leading: const Icon(Icons.water_drop_outlined, color: Colors.blue),
-                        title: Text(notification['title'] as String),
+                        title: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(notification['title'] as String),
+                            if (notification['lastWateredText'] != '')
+                              Text(
+                                notification['lastWateredText'],
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                          ],
+                        ),
                         subtitle: showButtons && isWateringNotification
                             ? Row(
                                 children: [
                                   ElevatedButton(
-                                    onPressed: () => _handleWatering(notification['id'] as int, notification['plantId'] as int),
+                                    onPressed: () => _handleWatering(
+                                        notification['id'] as int,
+                                        notification['plantId'] as int),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.blue[50],
                                       foregroundColor: Colors.blue[700],
@@ -137,7 +161,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   ElevatedButton(
-                                    onPressed: () => _handleSnooze(notification['id'] as int, notification['plantId'] as int),
+                                    onPressed: () => _handleSnooze(
+                                        notification['id'] as int,
+                                        notification['plantId'] as int),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.orange[50],
                                       foregroundColor: Colors.orange[700],
@@ -150,12 +176,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
                               )
                             : null,
                         onTap: () {
-                          // 클릭하면 해당 식물 정보 화면으로 이동
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => PlantInfoScreen(
-                                plant: widget.myPlants.firstWhere((p) => p.id == notification['plantId']),
+                                plant: widget.myPlants.firstWhere(
+                                    (p) => p.id == notification['plantId']),
                               ),
                             ),
                           );
@@ -178,4 +204,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
     );
   }
+
+  // 화면 표시용 날짜 포맷
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.year}-${_twoDigits(dateTime.month)}-${_twoDigits(dateTime.day)} '
+        '${_twoDigits(dateTime.hour)}:${_twoDigits(dateTime.minute)}';
+  }
+
+  String _twoDigits(int n) => n.toString().padLeft(2, '0');
 }

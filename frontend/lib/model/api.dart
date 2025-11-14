@@ -8,7 +8,7 @@ import 'diagnosis_model.dart';
 import 'remedy_model.dart';
 
 // ---------------------- 설정 ----------------------
-const String baseUrl = "https://44b53210b0ea.ngrok-free.app";
+const String baseUrl = "https://80afc3afd6ec.ngrok-free.app";
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
@@ -328,5 +328,33 @@ Future<Plant> fetchMyPlantDetail(int plantId) async {
     throw Exception('식물을 찾을 수 없거나 권한이 없습니다.');
   } else {
     throw Exception('내 식물 상세 정보 가져오기 실패: ${response.statusCode}');
+  }
+}
+
+// ---------------------- 성장일지 ----------------------
+Future<void> createManualDiary({
+  required int plantId,
+  required String logMessage,
+  String? imageUrl,
+}) async {
+  final accessToken = await _getAccessToken();
+  final url = Uri.parse('$baseUrl/diary/$plantId/manual');
+
+  final body = <String, dynamic>{'log_message': logMessage};
+  if (imageUrl != null) body['image_url'] = imageUrl;
+
+  final response = await http.post(
+    url,
+    headers: {
+      'Authorization': 'Bearer $accessToken',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode(body),
+  );
+
+  if (response.statusCode == 201) {
+    print('성장일지 저장 성공: ${response.body}');
+  } else {
+    throw Exception('성장일지 저장 실패: ${response.statusCode} - ${response.body}');
   }
 }

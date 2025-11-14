@@ -3,7 +3,9 @@ import 'plant_diary_form.dart';
 import 'model/api.dart';
 
 class PlantDiaryScreen extends StatefulWidget {
-  const PlantDiaryScreen({super.key});
+  final int plantId; // 서버 저장용 plantId 필요
+
+  const PlantDiaryScreen({super.key, required this.plantId});
 
   @override
   State<PlantDiaryScreen> createState() => _PlantDiaryScreenState();
@@ -17,10 +19,11 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
     String? nickname, // 사용자 작성일 경우만 nickname 사용, AI 자동 저장은 null
     required String title, // 병명 또는 사용자 입력 제목
     required String content, // 처리 추천 또는 사용자 입력 내용
-  }) {
+    bool isDiagnosis = false, // 진단 기록 여부
+  }) async {
     final diaryEntry = {
-      'nickname': nickname ?? '', // AI 자동 저장이면 빈 문자열
-      'title': title,
+      'nickname': isDiagnosis ? '' : (nickname ?? ''),
+      'title': isDiagnosis ? '진단 기록' : title,
       'content': content,
       'date':
           "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2,'0')}-${DateTime.now().day.toString().padLeft(2,'0')}",
@@ -30,17 +33,15 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
       diaryList.add(diaryEntry);
     });
 
-    // 서버 저장 시도 (안전)
-    saveDiaryToServer(diaryEntry);
-  }
-
-  Future<void> saveDiaryToServer(Map<String, String> diaryEntry) async {
+    // 서버 저장 시도
     try {
-      // TODO: 실제 서버 API 호출
-      // 예: await ApiService.saveDiary(diaryEntry);
-      print("서버 저장 호출: $diaryEntry");
+      await createManualDiary(
+        plantId: widget.plantId,
+        logMessage: diaryEntry['content'] ?? '',
+      );
+      print("서버 저장 성공: ${diaryEntry['title']}");
     } catch (e) {
-      print("서버 저장 실패 (무시 가능): $e");
+      print("서버 저장 실패: $e");
     }
   }
 
@@ -106,6 +107,7 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                                   nickname: result['nickname'],
                                   title: result['title']!,
                                   content: result['content'] ?? '',
+                                  isDiagnosis: false,
                                 );
                               }
                             }

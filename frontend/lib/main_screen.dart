@@ -29,7 +29,7 @@ class _MainScreenState extends State<MainScreen> {
     // 위젯이 생성될 때, 전달받은 userName으로 화면 목록을 구성
     _widgetOptions = <Widget>[
       HomePage(userName: widget.userName), // HomePage에 userName 전달
-      const PlantDiaryScreen(),
+      const PlantDiaryScreen(plantId: 0), // 여기 수정
       const MyPlantScreen(),
       // 1. MyInfoScreen에도 userName을 전달하도록 수정합니다.
       MyInfoScreen(userName: widget.userName),
