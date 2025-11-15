@@ -27,16 +27,16 @@ class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
 
   Future<void> _saveDiary() async {
     if (_contentController.text.trim().isEmpty && _selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('내용이나 사진을 추가해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('내용이나 사진을 추가해주세요.')));
       return;
     }
 
     if (_plantNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('식물 이름을 입력해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('식물 이름을 입력해주세요.')));
       return;
     }
 
@@ -57,9 +57,9 @@ class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
 
       Navigator.pop(context, true);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('일지 저장 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('일지 저장 실패: $e')));
     } finally {
       setState(() => _loading = false);
     }

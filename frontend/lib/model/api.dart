@@ -1,14 +1,19 @@
+// lib/model/api.dart 파일 전체 (최종 수정 및 안정화)
+
 import 'dart:convert';
-import 'dart:io'; // File 객체 사용
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'plant.dart';
-import 'chat_model.dart';
-import 'diagnosis_model.dart';
-import 'remedy_model.dart';
+import 'plant.dart'; // Plant 모델 정의 파일
+import 'chat_model.dart'; // ChatSendResponse, ChatMessage, ThreadInfo 모델 정의 파일
+import 'diagnosis_model.dart'; // DiagnosisResponse 모델 정의 파일
+import 'remedy_model.dart'; // RemedyAdvice 모델 정의 파일
+import 'package:http_parser/http_parser.dart';
+import 'dart:async';
 
 // ---------------------- 설정 ----------------------
-const String baseUrl = "https://dd1c1df5d603.ngrok-free.app";
+const String baseUrl =
+    "https://f9fae591fe6d.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
@@ -87,6 +92,7 @@ Future<List<String>> fetchPlantSpecies(String query) async {
 }
 
 // ---------------------- 내 식물 목록 ----------------------
+// 🚨 중복 정의 문제를 해결하고, 이 코드를 유일한 '내 식물 목록 조회' 함수로 확정합니다.
 Future<List<Plant>> fetchMyPlants() async {
   final accessToken = await _getAccessToken();
   final url = Uri.parse('$baseUrl/plants');
@@ -226,6 +232,43 @@ Future<Map<String, dynamic>> verifyEmailCode(String email, String code) async {
 }
 
 // ---------------------- 챗봇 ----------------------
+
+// 🚨 수정 완료: 422 에러 해결을 위해 MultipartRequest 요청으로 복귀
+Future<ChatSendResponse> sendChatMessage({
+  required String message,
+  int? threadId,
+}) async {
+  final accessToken = await _getAccessToken();
+  final url = Uri.parse('$baseUrl/chat/send');
+
+  var request = http.MultipartRequest('POST', url);
+  request.headers['Authorization'] = 'Bearer $accessToken';
+
+  // 1. message를 request.fields에 추가
+  request.fields['message'] = message;
+
+  // 2. thread_id를 request.fields에 추가
+  if (threadId != null) {
+    request.fields['thread_id'] = threadId.toString();
+  }
+
+  // Timeout 적용
+  final streamedResponse = await request.send();
+  final response = await http.Response.fromStream(
+    streamedResponse,
+  ).timeout(const Duration(seconds: 60));
+
+  final responseBody = utf8.decode(response.bodyBytes);
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    // NOTE: ChatSendResponse는 chat_model.dart에 정의되어 있어야 합니다.
+    return ChatSendResponse.fromJson(jsonDecode(responseBody));
+  } else {
+    throw Exception('챗봇 메시지 전송 실패: ${response.statusCode} - $responseBody');
+  }
+}
+
+// 기존 getChatHistory 함수는 변경 없음
 Future<List<ChatMessage>> getChatHistory(int threadId) async {
   final accessToken = await _getAccessToken();
   final url = Uri.parse('$baseUrl/chat/threads/$threadId/messages');
@@ -236,64 +279,71 @@ Future<List<ChatMessage>> getChatHistory(int threadId) async {
   if (response.statusCode == 200) {
     final String responseBody = utf8.decode(response.bodyBytes);
     final List<dynamic> jsonList = jsonDecode(responseBody);
+    // NOTE: ChatMessage는 chat_model.dart에 정의되어 있어야 합니다.
     return jsonList.map((json) => ChatMessage.fromJson(json)).toList();
   } else {
     throw Exception('대화 기록 불러오기 실패: ${response.statusCode}');
   }
 }
 
-Future<ChatSendResponse> sendChatMessage({
-  required String message,
-  int? threadId,
-  String? imageUrl,
-}) async {
+// 대화방 목록 가져오기 함수 (ThreadInfo 모델이 정의되어 있어야 함)
+Future<List<ThreadInfo>> fetchChatThreads() async {
   final accessToken = await _getAccessToken();
-  final url = Uri.parse('$baseUrl/chat/send');
-  Map<String, dynamic> requestBody = {'message': message};
-  if (threadId != null) requestBody['thread_id'] = threadId;
-  if (imageUrl != null) requestBody['image_url'] = imageUrl;
+  final url = Uri.parse('$baseUrl/chat/threads');
 
-  final response = await http.post(
+  final response = await http.get(
     url,
-    headers: {
-      'Authorization': 'Bearer $accessToken',
-      'Content-Type': 'application/json',
-    },
-    body: jsonEncode(requestBody),
+    headers: {'Authorization': 'Bearer $accessToken'},
   );
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
+  if (response.statusCode == 200) {
     final String responseBody = utf8.decode(response.bodyBytes);
-    return ChatSendResponse.fromJson(jsonDecode(responseBody));
+    final List<dynamic> jsonList = jsonDecode(responseBody);
+    // NOTE: ThreadInfo는 chat_model.dart에 정의되어 있어야 합니다.
+    return jsonList.map((json) => ThreadInfo.fromJson(json)).toList();
   } else {
-    throw Exception('챗봇 메시지 전송 실패: ${response.statusCode}');
+    throw Exception('대화방 목록 불러오기 실패: ${response.statusCode}');
   }
 }
 
 // ---------------------- AI 진단 ----------------------
-Future<DiagnosisResponse> diagnosePlant(File imageFile) async {
+Future<DiagnosisResponse> diagnosePlant(File imageFile, int plantId) async {
   final accessToken = await _getAccessToken();
   final url = Uri.parse('$baseUrl/diagnose/auto');
 
   var request = http.MultipartRequest('POST', url);
   request.headers['Authorization'] = 'Bearer $accessToken';
-  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+  // MIME Type을 명시적으로 'image/jpeg'로 지정
+  request.files.add(
+    await http.MultipartFile.fromPath(
+      'image', // 서버가 요구하는 필드 이름
+      imageFile.path,
+      // MIME Type 명시 (JPG 파일 기준)
+      contentType: MediaType('image', 'jpeg'),
+    ),
+  );
+
+  // plantId 필드 추가
+  request.fields['plant_id'] = plantId.toString();
 
   final streamedResponse = await request.send();
   final response = await http.Response.fromStream(streamedResponse);
   final responseBody = utf8.decode(response.bodyBytes);
 
   if (response.statusCode == 200 || response.statusCode == 201) {
+    // NOTE: DiagnosisResponse는 diagnosis_model.dart에 정의되어 있어야 합니다.
     return DiagnosisResponse.fromJson(jsonDecode(responseBody));
   } else {
-    throw Exception('진단 실패: ${response.statusCode}');
+    // 진단 실패 시 서버 응답 본문을 포함하여 에러 메시지 출력
+    throw Exception('진단 실패: ${response.statusCode} - $responseBody');
   }
 }
 
 // ---------------------- AI 처방전 ----------------------
 Future<RemedyAdvice> fetchRemedy(String diseaseKey) async {
   final accessToken = await _getAccessToken();
-  final url = Uri.parse('$baseUrl/remedy/');
+  final url = Uri.parse('$baseUrl/remedy');
 
   final response = await http.post(
     url,
@@ -306,6 +356,7 @@ Future<RemedyAdvice> fetchRemedy(String diseaseKey) async {
 
   final responseBody = utf8.decode(response.bodyBytes);
   if (response.statusCode == 200) {
+    // NOTE: RemedyAdvice는 remedy_model.dart에 정의되어 있어야 합니다.
     return RemedyAdvice.fromJson(jsonDecode(responseBody));
   } else {
     throw Exception('처방전 수신 실패: ${response.statusCode}');
@@ -353,9 +404,13 @@ Future<void> createManualDiary({
     body: jsonEncode(body),
   );
 
+  // 🚨 원래 상태로 복구: 응답 본문을 디코딩하지 않고 바로 사용 (한글 깨짐 위험은 있음)
+  // final responseBody = utf8.decode(response.bodyBytes); // 이 라인이 제거됨
+
   if (response.statusCode == 201) {
-    print('성장일지 저장 성공: ${response.body}');
+    print('성장일지 저장 성공: ${response.body}'); // 🚨 복구: response.body 사용
   } else {
+    // 🚨 복구: response.body 사용
     throw Exception('성장일지 저장 실패: ${response.statusCode} - ${response.body}');
   }
 }
@@ -383,7 +438,6 @@ Future<String> uploadMedia(File imageFile) async {
 }
 
 // ---------------------- 진단 요청 (2단계) ----------------------
-// uploadMedia에서 받은 image_url을 사용하여 AI 병해충 진단 요청
 Future<DiagnosisResponse> diagnosePlantWithImageUrl({
   required int plantId,
   required String imageUrl,
@@ -398,10 +452,7 @@ Future<DiagnosisResponse> diagnosePlantWithImageUrl({
       'Authorization': 'Bearer $accessToken',
       'Content-Type': 'application/json',
     },
-    body: jsonEncode({
-      'image_url': imageUrl,
-      'prompt_key': promptKey,
-    }),
+    body: jsonEncode({'image_url': imageUrl, 'prompt_key': promptKey}),
   );
 
   final responseBody = utf8.decode(response.bodyBytes);

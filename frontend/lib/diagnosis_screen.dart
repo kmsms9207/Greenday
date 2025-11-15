@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'model/api.dart';
-import 'model/diagnosis_model.dart';
-import 'remedy_screen.dart';
+import 'model/api.dart'; // diagnosePlant, fetchRemedy
+import 'model/diagnosis_model.dart'; // DiagnosisResponse
+import 'remedy_screen.dart'; // RemedyScreen
 
 class DiagnosisScreen extends StatefulWidget {
-  const DiagnosisScreen({super.key});
+  final int plantId; // 1. 필수: plantId 필드 추가
+  const DiagnosisScreen({super.key, required this.plantId});
 
   @override
   State<DiagnosisScreen> createState() => _DiagnosisScreenState();
@@ -17,24 +18,38 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
   DiagnosisResponse? _diagnosisResult;
-  List<String> _immediateActions = [];
+  List<String> _immediateActions = []; // 사용자 처리 추천 목록 (fetchRemedy에서 가져옴)
 
+  // 갤러리 이미지 선택 함수
   Future<void> _pickImageFromGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      setState(() {
-        _selectedImage = File(image.path);
-        _diagnosisResult = null;
-        _immediateActions = [];
-      });
+      _resetState(File(image.path));
     }
+  }
+
+  // 카메라로 사진 촬영 함수
+  Future<void> _takePhotoWithCamera() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image != null) {
+      _resetState(File(image.path));
+    }
+  }
+
+  // 상태 초기화 함수
+  void _resetState(File imageFile) {
+    setState(() {
+      _selectedImage = imageFile;
+      _diagnosisResult = null;
+      _immediateActions = [];
+    });
   }
 
   Future<void> _handleDiagnosis() async {
     if (_selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('진단할 식물 사진을 먼저 선택해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('진단할 식물 사진을 먼저 선택해주세요.')));
       return;
     }
 
@@ -45,28 +60,29 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
 
     try {
-      // 서버 호출 시도
-      final result = await diagnosePlant(_selectedImage!);
+      // 2. 필수: widget.plantId로 접근 및 diagnosePlant 호출 (인수 2개 전달)
+      final result = await diagnosePlant(_selectedImage!, widget.plantId);
+
       setState(() {
         _diagnosisResult = result;
       });
 
       if (result.isSuccess) {
+        // 진단 성공 시 해결 방법의 즉각적인 액션 정보를 미리 가져옴
         final remedy = await fetchRemedy(result.label);
         setState(() {
           _immediateActions = remedy.immediateActions;
         });
 
-        // 진단 결과를 Map 형태로 반환
-        Navigator.pop(context, {
-          'title': result.labelKo,
-          'content': _immediateActions.join('\n'),
-        });
+        // 3. 불필요한 Navigator.pop 로직 제거 (화면 닫지 않고 결과 표시)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${result.labelKo} 진단 완료')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('진단에 실패했습니다: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('진단에 실패했습니다: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -77,6 +93,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   void _navigateToRemedy() {
     if (_diagnosisResult == null || !_diagnosisResult!.isSuccess) return;
 
+    // 해결 방법 화면으로 이동
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -94,46 +111,74 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              height: 300,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey),
-              ),
-              child: _selectedImage != null
-                  ? Image.file(_selectedImage!, fit: BoxFit.cover)
-                  : const Center(
-                      child: Text(
-                        '사진을 선택해주세요',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-            ),
+            // 이미지 표시 영역
+            _buildImageDisplay(),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pickImageFromGallery,
-              icon: const Icon(Icons.photo_library),
-              label: const Text('갤러리'),
-            ),
+
+            // 4. 갤러리/카메라 버튼을 Row로 묶어 나란히 표시
+            _buildImagePickerRow(),
+
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _handleDiagnosis,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('진단하기', style: TextStyle(fontSize: 18)),
-            ),
+
+            // 진단하기 버튼
+            _buildDiagnosisButton(),
+
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 24),
+
+            // 결과 섹션
             _buildResultSection(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImageDisplay() {
+    return Container(
+      height: 300,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey),
+      ),
+      child: _selectedImage != null
+          ? Image.file(_selectedImage!, fit: BoxFit.cover)
+          : const Center(
+              child: Text('사진을 선택해주세요', style: TextStyle(color: Colors.grey)),
+            ),
+    );
+  }
+
+  Widget _buildImagePickerRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _pickImageFromGallery,
+          icon: const Icon(Icons.photo_library),
+          label: const Text('갤러리'),
+        ),
+        ElevatedButton.icon(
+          onPressed: _takePhotoWithCamera,
+          icon: const Icon(Icons.camera_alt),
+          label: const Text('카메라'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiagnosisButton() {
+    return ElevatedButton(
+      onPressed: _isLoading ? null : _handleDiagnosis,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+      child: _isLoading
+          ? const CircularProgressIndicator(color: Colors.white)
+          : const Text('진단하기', style: TextStyle(fontSize: 18)),
     );
   }
 
@@ -147,19 +192,36 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(_diagnosisResult!.labelKo,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(
+            '✅ ${_diagnosisResult!.labelKo}',
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          Text('신뢰도: ${(_diagnosisResult!.score * 100).toStringAsFixed(1)}%',
-              style: const TextStyle(fontSize: 16, color: Colors.blueGrey)),
+          Text(
+            '신뢰도: ${(_diagnosisResult!.score * 100).toStringAsFixed(1)}%',
+            style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
+          ),
           if (_diagnosisResult!.severity != null)
-            Text('심각도: ${_diagnosisResult!.severity}',
-                style: const TextStyle(fontSize: 16, color: Colors.red, fontWeight: FontWeight.bold)),
+            Text(
+              '심각도: ${_diagnosisResult!.severity}',
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
           if (_immediateActions.isNotEmpty) ...[
             const SizedBox(height: 16),
-            Text("사용자 처리 추천:\n${_immediateActions.map((e) => '• $e').join('\n')}",
-                style: const TextStyle(fontSize: 16)),
+            const Text(
+              '사용자 처리 추천 (FetchRemedy에서 가져옴):',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            ..._immediateActions
+                .map((e) => Text('• $e', style: const TextStyle(fontSize: 16)))
+                .toList(),
           ],
+
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _navigateToRemedy,
@@ -171,11 +233,19 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('판단 불확실',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.orange)),
+          const Text(
+            '🤔 판단 불확실',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
           const SizedBox(height: 16),
-          Text(_diagnosisResult!.reasonKo ?? 'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
-              style: const TextStyle(fontSize: 16)),
+          Text(
+            _diagnosisResult!.reasonKo ?? 'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
+            style: const TextStyle(fontSize: 16),
+          ),
         ],
       );
     }

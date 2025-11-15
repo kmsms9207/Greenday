@@ -229,7 +229,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       if (_accessToken == null) return;
 
       final response = await http.post(
-        Uri.parse('https://33ec24b88e40.ngrok-free.app/recommendations/ml'),
+        Uri.parse('https://f9fae591fe6d.ngrok-free.app/recommendations/ml'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_accessToken', // 반드시 null 아님 확인 후

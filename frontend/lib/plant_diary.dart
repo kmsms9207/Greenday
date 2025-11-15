@@ -74,10 +74,7 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                     fit: BoxFit.contain,
                   ),
                 const SizedBox(height: 16),
-                Text(
-                  entry.logMessage,
-                  style: const TextStyle(fontSize: 18),
-                ),
+                Text(entry.logMessage, style: const TextStyle(fontSize: 18)),
                 const SizedBox(height: 8),
                 Text(
                   '${entry.logType} • ${entry.createdAt.toLocal()}',
@@ -108,36 +105,36 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _diaryList.isEmpty
-              ? const Center(child: Text('등록된 일지가 없습니다.'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _diaryList.length,
-                  itemBuilder: (context, index) {
-                    final entry = _diaryList[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      child: ListTile(
-                        title: Text(
-                          entry.logMessage,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        subtitle: Text(
-                          '${entry.logType} • ${entry.createdAt.toLocal()}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: entry.imageUrl != null
-                            ? Image.network(
-                                '$baseUrl${entry.imageUrl}',
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                              )
-                            : null,
-                        onTap: () => _showDiaryDetail(entry), // 클릭 시 팝업
-                      ),
-                    );
-                  },
-                ),
+          ? const Center(child: Text('등록된 일지가 없습니다.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(8),
+              itemCount: _diaryList.length,
+              itemBuilder: (context, index) {
+                final entry = _diaryList[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(vertical: 6),
+                  child: ListTile(
+                    title: Text(
+                      entry.logMessage,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    subtitle: Text(
+                      '${entry.logType} • ${entry.createdAt.toLocal()}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    trailing: entry.imageUrl != null
+                        ? Image.network(
+                            '$baseUrl${entry.imageUrl}',
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                    onTap: () => _showDiaryDetail(entry), // 클릭 시 팝업
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openFormScreen,
         child: const Icon(Icons.add),
