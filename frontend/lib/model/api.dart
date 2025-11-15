@@ -8,7 +8,7 @@ import 'diagnosis_model.dart';
 import 'remedy_model.dart';
 
 // ---------------------- 설정 ----------------------
-const String baseUrl = "https://80afc3afd6ec.ngrok-free.app";
+const String baseUrl = "https://dd1c1df5d603.ngrok-free.app";
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
@@ -331,7 +331,8 @@ Future<Plant> fetchMyPlantDetail(int plantId) async {
   }
 }
 
-// ---------------------- 성장일지 ----------------------
+// ---------------------- 성장 일지 ----------------------
+// NOTE/PHOTO 자동 구분: log_message만 있으면 NOTE, image_url 있으면 PHOTO
 Future<void> createManualDiary({
   required int plantId,
   required String logMessage,
@@ -356,5 +357,109 @@ Future<void> createManualDiary({
     print('성장일지 저장 성공: ${response.body}');
   } else {
     throw Exception('성장일지 저장 실패: ${response.statusCode} - ${response.body}');
+  }
+}
+
+// ---------------------- 미디어 업로드 (1단계) ----------------------
+// 사진 파일을 서버에 업로드하여 image_url을 받아옵니다.
+Future<String> uploadMedia(File imageFile) async {
+  final accessToken = await _getAccessToken();
+  final url = Uri.parse('$baseUrl/media/upload');
+
+  var request = http.MultipartRequest('POST', url);
+  request.headers['Authorization'] = 'Bearer $accessToken';
+  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+  final streamedResponse = await request.send();
+  final response = await http.Response.fromStream(streamedResponse);
+  final responseBody = utf8.decode(response.bodyBytes);
+
+  if (response.statusCode == 201) {
+    final Map<String, dynamic> json = jsonDecode(responseBody);
+    return json['image_url']; // 예: "/media/1/orig"
+  } else {
+    throw Exception('미디어 업로드 실패: ${response.statusCode} - $responseBody');
+  }
+}
+
+// ---------------------- 진단 요청 (2단계) ----------------------
+// uploadMedia에서 받은 image_url을 사용하여 AI 병해충 진단 요청
+Future<DiagnosisResponse> diagnosePlantWithImageUrl({
+  required int plantId,
+  required String imageUrl,
+  String promptKey = 'default',
+}) async {
+  final accessToken = await _getAccessToken();
+  final url = Uri.parse('$baseUrl/plants/$plantId/diagnose-llm');
+
+  final response = await http.post(
+    url,
+    headers: {
+      'Authorization': 'Bearer $accessToken',
+      'Content-Type': 'application/json',
+    },
+    body: jsonEncode({
+      'image_url': imageUrl,
+      'prompt_key': promptKey,
+    }),
+  );
+
+  final responseBody = utf8.decode(response.bodyBytes);
+
+  if (response.statusCode == 200) {
+    return DiagnosisResponse.fromJson(jsonDecode(responseBody));
+  } else {
+    throw Exception('진단 요청 실패: ${response.statusCode} - $responseBody');
+  }
+}
+
+// ---------------------- 성장일지 Diary 모델 ----------------------
+class DiaryEntry {
+  final int id;
+  final int plantId;
+  final DateTime createdAt;
+  final String logType; // DIAGNOSIS, WATERING, BIRTHDAY, NOTE, PHOTO
+  final String logMessage;
+  final String? imageUrl;
+  final int? referenceId;
+
+  DiaryEntry({
+    required this.id,
+    required this.plantId,
+    required this.createdAt,
+    required this.logType,
+    required this.logMessage,
+    this.imageUrl,
+    this.referenceId,
+  });
+
+  factory DiaryEntry.fromJson(Map<String, dynamic> json) {
+    return DiaryEntry(
+      id: json['id'],
+      plantId: json['plant_id'],
+      createdAt: DateTime.parse(json['created_at']),
+      logType: json['log_type'],
+      logMessage: json['log_message'] ?? '',
+      imageUrl: json['image_url'],
+      referenceId: json['reference_id'],
+    );
+  }
+}
+
+// ---------------------- 성장일지 목록 조회 ----------------------
+Future<List<DiaryEntry>> fetchDiary(int plantId) async {
+  final accessToken = await _getAccessToken();
+  final url = Uri.parse('$baseUrl/diary/$plantId');
+
+  final response = await http.get(
+    url,
+    headers: {'Authorization': 'Bearer $accessToken'},
+  );
+
+  if (response.statusCode == 200) {
+    final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+    return data.map((json) => DiaryEntry.fromJson(json)).toList();
+  } else {
+    throw Exception('일지 목록 가져오기 실패: ${response.statusCode}');
   }
 }

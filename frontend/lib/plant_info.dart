@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'model/plant.dart';
-import 'model/api.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'model/api.dart';
+import 'model/plant.dart';
+import 'diagnosis_screen.dart';
+import 'plant_diary.dart';
 
 final _storage = const FlutterSecureStorage();
 
@@ -24,8 +26,6 @@ class PlantInfoScreen extends StatefulWidget {
 class _PlantInfoScreenState extends State<PlantInfoScreen> {
   Plant? _plant;
   bool _loading = true;
-
-  // 화면용 마지막 물 준 날짜
   DateTime? _lastWateredAt;
 
   @override
@@ -52,16 +52,10 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
 
   Future<void> _handleWatering(BuildContext context) async {
     if (_plant == null) return;
-
     try {
       final accessToken = await _getAccessToken();
       await markAsWatered(_plant!.id, accessToken);
-
-      // 버튼 클릭 후 화면 갱신용 날짜
-      setState(() {
-        _lastWateredAt = DateTime.now();
-      });
-
+      setState(() => _lastWateredAt = DateTime.now());
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('물주기 기록 완료!')),
       );
@@ -124,6 +118,47 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
     );
   }
 
+  // -------------------- 병해충 진단 버튼 핸들러 --------------------
+  Future<void> _handleDiagnosis(BuildContext context) async {
+    if (_plant == null) return;
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const DiagnosisScreen(),
+      ),
+    );
+
+    if (result != null && result is Map) {
+      final title = result['title'] as String?;
+      final content = result['content'] as String?;
+      if (title != null && content != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$title 진단 완료!')),
+        );
+
+        // -------------------- 자동 성장 일지 저장 --------------------
+        try {
+          // 서버 API 호출
+          await createManualDiary(
+            plantId: _plant!.id,
+            logMessage: '[$title] 진단을 받았습니다.',
+          );
+        } catch (e) {
+          print('자동 성장 일지 서버 저장 실패: $e');
+        }
+
+        // PlantDiaryScreen으로 이동
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PlantDiaryScreen(plantId: _plant!.id),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -165,7 +200,9 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
               children: [
                 _leftInfoTile("햇빛", _plant!.lightRequirement),
                 _leftInfoTile("물 주기", _plant!.wateringType),
-                _leftInfoTile("물 준 날", _lastWateredAt != null
+                _leftInfoTile(
+                  "물 준 날",
+                  _lastWateredAt != null
                       ? _formatDateTime(_lastWateredAt!)
                       : "정보 없음",
                 ),
@@ -193,6 +230,15 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange[100],
                     foregroundColor: Colors.orange[800],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _handleDiagnosis(context),
+                  icon: const Icon(Icons.medical_services),
+                  label: const Text("병해충 진단"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[100],
+                    foregroundColor: Colors.green[800],
                   ),
                 ),
               ],

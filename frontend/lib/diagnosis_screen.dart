@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'model/api.dart'; // diagnosePlant, fetchRemedy
+import 'model/api.dart';
 import 'model/diagnosis_model.dart';
 import 'remedy_screen.dart';
 
@@ -57,10 +57,10 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
           _immediateActions = remedy.immediateActions;
         });
 
-        // AI 진단 결과를 MainScreen이나 PlantDiaryScreen으로 전달
+        // 진단 결과를 Map 형태로 반환
         Navigator.pop(context, {
-          'title': result.label,               // 병명
-          'content': _immediateActions.join('\n'), // 처리 추천
+          'title': result.labelKo,
+          'content': _immediateActions.join('\n'),
         });
       }
     } catch (e) {

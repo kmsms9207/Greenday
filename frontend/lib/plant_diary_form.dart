@@ -1,106 +1,111 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'model/api.dart';
 
 class PlantDiaryFormScreen extends StatefulWidget {
-  const PlantDiaryFormScreen({super.key});
+  final int? plantId; // nullable
+  const PlantDiaryFormScreen({Key? key, this.plantId}) : super(key: key);
 
   @override
   State<PlantDiaryFormScreen> createState() => _PlantDiaryFormScreenState();
-} 
+}
 
 class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
-  final TextEditingController _nicknameController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _plantNameController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  File? _selectedImage;
+  bool _loading = false;
 
-  void _savePlant() {
-    final nickname = _nicknameController.text.trim();
-    final title = _titleController.text.trim();
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => _selectedImage = File(picked.path));
+    }
+  }
 
-    if (nickname.isEmpty || title.isEmpty) {
-      // 이름이나 제목이 비어있으면 경고
+  Future<void> _saveDiary() async {
+    if (_contentController.text.trim().isEmpty && _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이름과 제목을 입력해주세요.')),
+        const SnackBar(content: Text('내용이나 사진을 추가해주세요.')),
       );
-      return; // 추가하지 않고 종료
+      return;
     }
 
-    final plantData = {
-      'nickname': nickname,
-      'title': title,
-      'content': _contentController.text,
-    };
-    Navigator.pop(context, plantData); 
+    if (_plantNameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('식물 이름을 입력해주세요.')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      String? imageUrl;
+      if (_selectedImage != null) {
+        imageUrl = await uploadMedia(_selectedImage!);
+      }
+
+      await createManualDiary(
+        plantId: widget.plantId ?? 0,
+        logMessage: _contentController.text.trim().isNotEmpty
+            ? _contentController.text.trim()
+            : '사진을 추가했습니다.',
+        imageUrl: imageUrl,
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('일지 저장 실패: $e')),
+      );
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color backgroundColor = Colors.white;
-
     return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          "GREEN DAY",
-          style: TextStyle(
-            color: Colors.black54,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black54),
-      ),
+      appBar: AppBar(title: const Text("새 일지 작성")),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildTextField("이름", _nicknameController),
-            const SizedBox(height: 16),
-            _buildTextField("제목", _titleController),
-            const SizedBox(height: 16),
-            _buildTextField("내용", _contentController, maxLines: 15),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SizedBox(
-        width: double.infinity,
-        height: 60, // 버튼 높이
-        child: ElevatedButton(
-          onPressed: _savePlant,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFA4B6A4),
-            foregroundColor: Colors.white,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
+            TextField(
+              controller: _plantNameController,
+              decoration: const InputDecoration(
+                labelText: '식물 이름',
+                border: OutlineInputBorder(),
+              ),
             ),
-            padding: EdgeInsets.zero,
-          ),
-          child: const Text("저장", style: TextStyle(fontSize: 25)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller,
-      {int maxLines = 1}) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        filled: true,
-        fillColor: Color(0xFFF1F1F1),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Colors.grey),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFA4B6A4)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _contentController,
+              maxLines: 10,
+              decoration: const InputDecoration(
+                labelText: '내용',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _selectedImage != null
+                ? Image.file(_selectedImage!, height: 200)
+                : const SizedBox(),
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.photo),
+              label: const Text("사진 선택"),
+            ),
+            const SizedBox(height: 20),
+            _loading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: _saveDiary,
+                    child: const Text("저장"),
+                  ),
+          ],
         ),
       ),
     );
