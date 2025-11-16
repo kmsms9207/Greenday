@@ -1,4 +1,4 @@
-// lib/screens/chatbot.dart 파일 전체 (최종 텍스트 전용 버전)
+// lib/screens/chatbot.dart 파일 전체 (수정된 코드)
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -113,6 +113,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       if (!mounted) return; // 🚨 mounted 확인
 
       setState(() {
+        // 서버에서 반환된 threadId를 저장/업데이트합니다.
         _threadId = response.threadId;
         _messages.add(response.assistantMessage);
         _isLoading = false;
@@ -163,7 +164,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
+          // 🚨 [수정]: 뒤로 가기 시 _threadId가 null이 아니면 true를 반환합니다.
+          onPressed: () => Navigator.of(context).pop(_threadId != null),
         ),
         actions: [
           IconButton(
