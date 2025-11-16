@@ -72,24 +72,25 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
 
   Future<void> _handleWatering(BuildContext context) async {
     if (_plant == null) return;
+
     try {
       final accessToken = await _getAccessToken();
-      await markAsWatered(_plant!.id, accessToken);
-      
-      // 물주기 일지 자동 저장
-      await createManualDiary(plantId: _plant!.id, logMessage: '물을 주었습니다.');
 
-      if (mounted) {
-        setState(() => _lastWateredAt = DateTime.now());
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('물주기 기록 및 일지 저장 완료!')));
-      
+      // 1. 물주기 기록
+      await markAsWatered(_plant!.id, accessToken);
+      // ✅ 주석 처리: createManualDiary 중복 호출 제거
+      // await createManualDiary(plantId: _plant!.id, logMessage: '물을 주었습니다.');
+
+      // 2. 화면 상태 업데이트
+      if (mounted) setState(() => _lastWateredAt = DateTime.now());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('물주기 기록 완료!')),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('물주기 기록 실패: $e')),
+      );
     }
   }
 

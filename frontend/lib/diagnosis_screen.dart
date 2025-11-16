@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'model/api.dart'; // diagnosePlant, fetchRemedy, uploadMedia, createManualDiary
+import 'model/api.dart'; // diagnosePlant, fetchRemedy, createManualDiary
 import 'model/diagnosis_model.dart'; // DiagnosisResponse
 import 'remedy_screen.dart'; // RemedyScreen
 
 class DiagnosisScreen extends StatefulWidget {
-  final int plantId; // 필수: plantId
+  final int plantId;
   const DiagnosisScreen({super.key, required this.plantId});
 
   @override
@@ -18,20 +18,25 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
   DiagnosisResponse? _diagnosisResult;
-  List<String> _immediateActions = []; // 사용자 처리 추천 목록
+  List<String> _immediateActions = [];
 
-  // 갤러리 이미지 선택
+  // 갤러리 선택
   Future<void> _pickImageFromGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) _resetState(File(image.path));
+    if (image != null) {
+      _resetState(File(image.path));
+    }
   }
 
   // 카메라 촬영
   Future<void> _takePhotoWithCamera() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-    if (image != null) _resetState(File(image.path));
+    if (image != null) {
+      _resetState(File(image.path));
+    }
   }
 
+  // 상태 초기화
   void _resetState(File imageFile) {
     setState(() {
       _selectedImage = imageFile;
@@ -40,10 +45,12 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
   }
 
+  // 진단 + 로그 저장
   Future<void> _handleDiagnosis() async {
     if (_selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('진단할 식물 사진을 먼저 선택해주세요.')));
+        const SnackBar(content: Text('진단할 식물 사진을 먼저 선택해주세요.')),
+      );
       return;
     }
 
@@ -54,7 +61,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
 
     try {
-      // 1️⃣ File 그대로 diagnosePlant 호출
+      // 1. 진단 API 호출
       final result = await diagnosePlant(_selectedImage!, widget.plantId);
 
       setState(() {
@@ -62,30 +69,34 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       });
 
       if (result.isSuccess) {
-        // 2️⃣ 즉각적인 액션 정보 가져오기
+        // 2. 처방전 가져오기
         final remedy = await fetchRemedy(result.label);
         setState(() {
           _immediateActions = remedy.immediateActions;
         });
 
-        // 3️⃣ 자동 성장 일지 기록
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${result.labelKo} 진단 완료')),
+        );
+
+        // 3. DIAGNOSIS 로그 저장
         try {
-          final uploadedImageUrl = await uploadMedia(_selectedImage!);
           await createManualDiary(
             plantId: widget.plantId,
-            logMessage: '[${result.labelKo}] 진단 완료',
-            imageUrl: uploadedImageUrl,
+            logMessage: "'${result.labelKo}' 진단 완료",
+            logType: 'DIAGNOSIS', // 반드시 DIAGNOSIS 타입 지정
           );
         } catch (e) {
-          print('자동 일지 기록 실패: $e');
+          // 로그 저장 실패는 진단 성공과 분리하여 사용자에게 알림
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('DIAGNOSIS 로그 저장 실패: $e')),
+          );
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${result.labelKo} 진단 완료')));
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('진단에 실패했습니다: $e')));
+        SnackBar(content: Text('진단에 실패했습니다: $e')),
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -95,6 +106,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   void _navigateToRemedy() {
     if (_diagnosisResult == null || !_diagnosisResult!.isSuccess) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -137,7 +149,10 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         border: Border.all(color: Colors.grey),
       ),
       child: _selectedImage != null
-          ? Image.file(_selectedImage!, fit: BoxFit.cover)
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(_selectedImage!, fit: BoxFit.cover),
+            )
           : const Center(
               child: Text('사진을 선택해주세요', style: TextStyle(color: Colors.grey)),
             ),
@@ -164,7 +179,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   Widget _buildDiagnosisButton() {
     return ElevatedButton(
-      onPressed: _isLoading ? null : _handleDiagnosis,
+      onPressed: _isLoading || _selectedImage == null ? null : _handleDiagnosis,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 16),
       ),
@@ -205,12 +220,10 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
           if (_immediateActions.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Text(
-              '사용자 처리 추천:',
+              '사용자 처리 추천 (FetchRemedy에서 가져옴):',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            ..._immediateActions
-                .map((e) => Text('• $e', style: const TextStyle(fontSize: 16)))
-                .toList(),
+            ..._immediateActions.map((e) => Text('• $e', style: const TextStyle(fontSize: 16))).toList(),
           ],
           const SizedBox(height: 24),
           ElevatedButton(
@@ -225,16 +238,11 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         children: [
           const Text(
             '🤔 판단 불확실',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.orange,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.orange),
           ),
           const SizedBox(height: 16),
           Text(
-            _diagnosisResult!.reasonKo ??
-                'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
+            _diagnosisResult!.reasonKo ?? 'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
             style: const TextStyle(fontSize: 16),
           ),
         ],

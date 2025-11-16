@@ -1,13 +1,13 @@
-// lib/model/api.dart 파일 전체 (최종 수정 및 안정화)
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'plant.dart'; // Plant 모델 정의 파일
 import 'chat_model.dart'; // ChatSendResponse, ChatMessage, ThreadInfo 모델 정의 파일
 import 'diagnosis_model.dart'; // DiagnosisResponse 모델 정의 파일
 import 'remedy_model.dart'; // RemedyAdvice 모델 정의 파일
+import 'diary_model.dart';
 import 'package:http_parser/http_parser.dart';
 import 'dart:async';
 
@@ -386,14 +386,17 @@ Future<Plant> fetchMyPlantDetail(int plantId) async {
 // NOTE/PHOTO 자동 구분: log_message만 있으면 NOTE, image_url 있으면 PHOTO
 Future<void> createManualDiary({
   required int plantId,
-  required String logMessage,
+  String? logMessage, // 기존 required 제거
   String? imageUrl,
+  String? logType,
 }) async {
   final accessToken = await _getAccessToken();
   final url = Uri.parse('$baseUrl/diary/$plantId/manual');
 
-  final body = <String, dynamic>{'log_message': logMessage};
+  final body = <String, dynamic>{};
+  if (logMessage != null && logMessage.isNotEmpty) body['log_message'] = logMessage;
   if (imageUrl != null) body['image_url'] = imageUrl;
+  if (logType != null) body['type'] = logType; // type 포함
 
   final response = await http.post(
     url,
@@ -404,13 +407,9 @@ Future<void> createManualDiary({
     body: jsonEncode(body),
   );
 
-  // 🚨 원래 상태로 복구: 응답 본문을 디코딩하지 않고 바로 사용 (한글 깨짐 위험은 있음)
-  // final responseBody = utf8.decode(response.bodyBytes); // 이 라인이 제거됨
-
   if (response.statusCode == 201) {
-    print('성장일지 저장 성공: ${response.body}'); // 🚨 복구: response.body 사용
+    print('성장일지 저장 성공: ${response.body}');
   } else {
-    // 🚨 복구: response.body 사용
     throw Exception('성장일지 저장 실패: ${response.statusCode} - ${response.body}');
   }
 }
@@ -436,15 +435,35 @@ Future<void> deleteManualDiary(int diaryId) async {
   }
 }
 
-// ---------------------- 미디어 업로드 (1단계) ----------------------
-// 사진 파일을 서버에 업로드하여 image_url을 받아옵니다.
+// ---------------------- 미디어 업로드 (1단계) - 수정 ----------------------
 Future<String> uploadMedia(File imageFile) async {
   final accessToken = await _getAccessToken();
   final url = Uri.parse('$baseUrl/media/upload');
 
+  // 1. 파일 확장자를 기반으로 MIME 타입을 결정합니다.
+  final extension = p.extension(imageFile.path).toLowerCase();
+  MediaType contentType;
+
+  if (extension == '.png') {
+    contentType = MediaType('image', 'png');
+  } else if (extension == '.jpg' || extension == '.jpeg') {
+    contentType = MediaType('image', 'jpeg');
+  } else {
+    // 지원하지 않는 이미지 파일이거나 타입을 알 수 없는 경우 예외 처리
+    throw Exception('지원하는 이미지 파일(JPG, PNG)만 업로드할 수 있습니다. 현재 확장자: $extension');
+  }
+
   var request = http.MultipartRequest('POST', url);
   request.headers['Authorization'] = 'Bearer $accessToken';
-  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+  
+  // 2. contentType을 명시적으로 지정합니다.
+  request.files.add(
+    await http.MultipartFile.fromPath(
+      'image', // 서버가 요구하는 필드 이름
+      imageFile.path,
+      contentType: contentType, // 👈 수정된 부분
+    ),
+  );
 
   final streamedResponse = await request.send();
   final response = await http.Response.fromStream(streamedResponse);
@@ -452,8 +471,9 @@ Future<String> uploadMedia(File imageFile) async {
 
   if (response.statusCode == 201) {
     final Map<String, dynamic> json = jsonDecode(responseBody);
-    return json['image_url']; // 예: "/media/1/orig"
+    return json['image_url'];
   } else {
+    // 서버에서 받은 상세 에러 메시지를 출력하여 디버깅을 돕습니다.
     throw Exception('미디어 업로드 실패: ${response.statusCode} - $responseBody');
   }
 }
@@ -485,43 +505,15 @@ Future<DiagnosisResponse> diagnosePlantWithImageUrl({
   }
 }
 
-// ---------------------- 성장일지 Diary 모델 ----------------------
-class DiaryEntry {
-  final int id;
-  final int plantId;
-  final DateTime createdAt;
-  final String logType; // DIAGNOSIS, WATERING, BIRTHDAY, NOTE, PHOTO
-  final String logMessage;
-  final String? imageUrl;
-  final int? referenceId;
-
-  DiaryEntry({
-    required this.id,
-    required this.plantId,
-    required this.createdAt,
-    required this.logType,
-    required this.logMessage,
-    this.imageUrl,
-    this.referenceId,
-  });
-
-  factory DiaryEntry.fromJson(Map<String, dynamic> json) {
-    return DiaryEntry(
-      id: json['id'],
-      plantId: json['plant_id'],
-      createdAt: DateTime.parse(json['created_at']),
-      logType: json['log_type'],
-      logMessage: json['log_message'] ?? '',
-      imageUrl: json['image_url'],
-      referenceId: json['reference_id'],
-    );
-  }
-}
-
 // ---------------------- 성장일지 목록 조회 ----------------------
-Future<List<DiaryEntry>> fetchDiary(int plantId) async {
+// 🚨 plantId는 필수이므로 int?를 int로 변경하고, null 체크 로직을 제거합니다.
+Future<List<DiaryEntry>> fetchDiary(int plantId) async { // int? -> int로 수정
   final accessToken = await _getAccessToken();
-  final url = Uri.parse('$baseUrl/diary/$plantId');
+  
+  // 🚨 plantId가 필수가 되었으므로, 경로 생성 로직 단순화
+  final url = Uri.parse('$baseUrl/diary/$plantId'); 
+  
+  print('📡 요청 URL: $url'); // 디버깅용
 
   final response = await http.get(
     url,
@@ -532,6 +524,7 @@ Future<List<DiaryEntry>> fetchDiary(int plantId) async {
     final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
     return data.map((json) => DiaryEntry.fromJson(json)).toList();
   } else {
-    throw Exception('일지 목록 가져오기 실패: ${response.statusCode}');
+    final responseBody = utf8.decode(response.bodyBytes);
+    throw Exception('일지 목록 가져오기 실패: ${response.statusCode} - $responseBody');
   }
 }
