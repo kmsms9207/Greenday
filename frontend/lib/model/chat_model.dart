@@ -1,4 +1,49 @@
-// 서버와 주고받는 채팅 메시지의 구조
+// lib/model/chat_model.dart (전체 파일 - ThreadInfo 수정 완료)
+
+// ---------------------- 1. 대화방 목록 ----------------------
+class ThreadInfo {
+  final int id;
+  // 🟢 [수정] title이 null일 수 있음 (API 명세 참고)
+  final String? title;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  // 🟢 [추가] API 명세에 따라 3개 필드 추가
+  final int messageCount;
+  final String? lastMessage;
+  final DateTime? lastMessageAt;
+
+  ThreadInfo({
+    required this.id,
+    this.title,
+    required this.createdAt,
+    required this.updatedAt,
+    // 🟢 [추가] 생성자에 반영
+    required this.messageCount,
+    this.lastMessage,
+    this.lastMessageAt,
+  });
+
+  factory ThreadInfo.fromJson(Map<String, dynamic> json) {
+    return ThreadInfo(
+      id: json['id'] as int,
+      // 🟢 [수정] title이 null일 수 있으므로 as String?
+      title: json['title'] as String?,
+      createdAt: DateTime.parse(json['created_at']),
+      updatedAt: DateTime.parse(json['updated_at']),
+
+      // 🟢 [추가] 새 필드 파싱 (null일 경우 기본값 처리)
+      messageCount: json['message_count'] as int? ?? 0,
+      lastMessage: json['last_message'] as String?,
+      lastMessageAt: json['last_message_at'] != null
+          ? DateTime.parse(json['last_message_at'])
+          : null,
+    );
+  }
+}
+
+// ---------------------- 2. 개별 메시지 ----------------------
+// (GET /chat/threads/{id}/messages 응답 및 POST /chat/send 응답에 사용)
 class ChatMessage {
   final String role; // 'user' 또는 'assistant'
   final String content;
@@ -14,7 +59,7 @@ class ChatMessage {
     this.imageUrl, // 2. 생성자에 추가
   });
 
-  // 서버에서 받은 JSON을 ChatMessage 객체로 변환 (수정된 부분)
+  // 서버에서 받은 JSON을 ChatMessage 객체로 변환 (기존 코드)
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     String messageContent = json['content'] ?? '';
 
@@ -40,7 +85,8 @@ class ChatMessage {
   }
 }
 
-// 메시지 전송(POST /chat) 시 서버로부터 받는 응답의 구조
+// ---------------------- 3. 메시지 전송 응답 ----------------------
+// (POST /chat/send 응답)
 class ChatSendResponse {
   final int threadId;
   final ChatMessage assistantMessage;
@@ -52,32 +98,6 @@ class ChatSendResponse {
     return ChatSendResponse(
       threadId: json['thread_id'],
       assistantMessage: ChatMessage.fromJson(json['assistant']),
-    );
-  }
-}
-
-// model/chat_model.dart 파일에 추가
-
-class ThreadInfo {
-  final int id;
-  final String title;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  ThreadInfo({
-    required this.id,
-    required this.title,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory ThreadInfo.fromJson(Map<String, dynamic> json) {
-    return ThreadInfo(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      // ISO 8601 형식의 문자열을 DateTime 객체로 파싱
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
     );
   }
 }

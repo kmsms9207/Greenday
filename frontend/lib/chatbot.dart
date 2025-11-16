@@ -1,11 +1,9 @@
-// lib/screens/chatbot.dart 파일 전체 (수정된 코드)
+// lib/screens/chatbot.dart 파일 전체 (안내 문구 추가)
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'model/api.dart' as api;
 import 'model/chat_model.dart';
-import 'chat_list_screen.dart';
-// 🚨 이미지 관련 import는 모두 제거됨
 
 class ChatbotScreen extends StatefulWidget {
   final String userName;
@@ -24,12 +22,10 @@ class ChatbotScreen extends StatefulWidget {
 class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  // ImagePicker 등 이미지 관련 변수 모두 제거
 
   int? _threadId;
   List<ChatMessage> _messages = [];
   bool _isLoading = false;
-  // File? _selectedImageFile 제거
 
   @override
   void initState() {
@@ -37,6 +33,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     if (widget.initialThreadId != null) {
       _loadChatHistory(widget.initialThreadId!);
     } else {
+      _threadId = null; // 🟢 새 채팅임을 명시
       _setInitialMessages();
     }
   }
@@ -59,6 +56,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           content: '메시지를 입력해 대화를 시작하세요.',
           createdAt: DateTime.now().subtract(const Duration(seconds: 1)),
         ),
+        // 🟢 [수정 1] "AI는 실수를 할 수 있습니다." 메시지 추가
+        ChatMessage(
+          role: 'system_info_faint', // 👈 새로운 role을 지정
+          content: 'AI는 실수를 할 수 있습니다.',
+          createdAt: DateTime.now().subtract(const Duration(seconds: 1)),
+        ),
       ];
     });
   }
@@ -68,7 +71,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     try {
       final history = await api.getChatHistory(threadId);
 
-      if (!mounted) return; // 🚨 mounted 확인
+      if (!mounted) return;
 
       setState(() {
         _threadId = threadId;
@@ -77,9 +80,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       });
       _scrollToBottom();
     } catch (e) {
-      if (!mounted) return; // 🚨 mounted 확인
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (!mounted) return; // 🚨 mounted 확인
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('대화 기록을 불러오는 데 실패했습니다: $e')));
@@ -89,7 +92,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Future<void> _handleSendPressed() async {
     final messageText = _textController.text;
 
-    if (messageText.isEmpty) return; // 🚨 빈 메시지 전송 방지 (422 에러 회피)
+    if (messageText.isEmpty) return;
 
     final userMessage = ChatMessage(
       content: messageText,
@@ -102,6 +105,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _isLoading = true;
     });
     _textController.clear();
+    setState(() {});
     _scrollToBottom();
 
     try {
@@ -110,17 +114,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         threadId: _threadId,
       );
 
-      if (!mounted) return; // 🚨 mounted 확인
+      if (!mounted) return;
 
       setState(() {
-        // 서버에서 반환된 threadId를 저장/업데이트합니다.
         _threadId = response.threadId;
         _messages.add(response.assistantMessage);
         _isLoading = false;
       });
       _scrollToBottom();
     } catch (e) {
-      if (!mounted) return; // 🚨 mounted 확인
+      if (!mounted) return;
       final errorMessage = ChatMessage(
         content: '죄송합니다. 답변을 생성하는 중 오류가 발생했습니다: $e',
         role: 'assistant',
@@ -133,8 +136,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _scrollToBottom();
     }
   }
-
-  // 🚨 _selectImage, _showAttachmentOptions 함수는 제거됨
 
   void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -164,20 +165,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          // 🚨 [수정]: 뒤로 가기 시 _threadId가 null이 아니면 true를 반환합니다.
           onPressed: () => Navigator.of(context).pop(_threadId != null),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ChatListScreen()),
-              );
-            },
-          ),
-        ],
+        actions: [],
       ),
       body: Column(
         children: [
@@ -203,6 +193,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 if (message.role == 'system_info') {
                   return _buildSystemMessage(message.content);
                 }
+                // 🟢 [수정 2] 새로운 role('system_info_faint')을 처리
+                if (message.role == 'system_info_faint') {
+                  return _buildFaintSystemMessage(message.content);
+                }
                 if (message.role == 'assistant_welcome') {
                   return _buildWelcomeMessage();
                 }
@@ -219,6 +213,22 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   // -----------------------------------------------------------
   // UI 빌더 함수들
   // -----------------------------------------------------------
+
+  // 🟢 [수정 3] "AI는 실수를 할 수 있습니다."를 위한 헬퍼 위젯 추가
+  Widget _buildFaintSystemMessage(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Text(
+          message,
+          style: TextStyle(
+            color: Colors.grey[500], // 👈 연한 회색 글씨
+            fontSize: 12, // 👈 조금 더 작은 폰트
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildDateSeparator(String date) {
     return Row(
@@ -249,7 +259,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
   Widget _buildChatMessage(ChatMessage message) {
     bool isUser = message.role == 'user';
-    // 🚨 이미지 로직 제거 (네트워크 이미지 로딩 관련 코드 제거)
     final hasImage = false;
 
     return Container(
@@ -375,6 +384,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       hintText: '메시지 입력',
                     ),
                     onSubmitted: (text) => _handleSendPressed(),
+                    onChanged: (text) => setState(() {}),
                   ),
                 ),
                 IconButton(

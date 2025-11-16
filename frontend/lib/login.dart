@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _storage = const FlutterSecureStorage();
 
   Future<void> attemptLogin() async {
-    const String apiUrl = "https://feb991a69212.ngrok-free.app/auth/login";
+    const String apiUrl = "https://276d349f8bc4.ngrok-free.app/auth/login";
 
     try {
       final response = await http.post(

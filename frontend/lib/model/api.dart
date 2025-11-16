@@ -1,4 +1,4 @@
-// lib/model/api.dart 파일 전체 (최종 수정 및 통합)
+// lib/model/api.dart 파일 전체 (deleteChatThread 추가 완료)
 
 import 'dart:convert';
 import 'dart:io';
@@ -16,7 +16,7 @@ import 'package:dio/dio.dart';
 final Dio _dio = Dio();
 // 🟢 [수정] baseUrl 공용으로 선언
 const String baseUrl =
-    "https://feb991a69212.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
+    "https://276d349f8bc4.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
 final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
 // 🟢 [통합] 모든 API 호출에 사용할 인증 헤더를 구성하는 함수
@@ -319,6 +319,23 @@ Future<List<ThreadInfo>> fetchChatThreads() async {
   }
 }
 
+// 🟢 [신규 추가] 챗봇 대화방(스레드) 삭제 (DELETE /chat/threads/{id})
+Future<bool> deleteChatThread(int threadId) async {
+  try {
+    final response = await _dio.delete(
+      '$baseUrl/chat/threads/$threadId', // 🟢 baseUrl 사용
+      options: Options(headers: await _getAuthHeaders(isJson: false)),
+    );
+
+    // 🟢 204 No Content (성공)
+    return response.statusCode == 204 || response.statusCode == 200;
+  } on DioError catch (e) {
+    print('Error deleting chat thread: $e');
+    // 404 (찾을 수 없음) 또는 기타 오류
+    return false;
+  }
+}
+
 // ---------------------- AI 진단 ----------------------
 // 🟢 [수정] _getAuthHeaders 적용 및 Multipart Request 헤더 설정 방식 변경
 Future<DiagnosisResponse> diagnosePlant(File imageFile, int plantId) async {
@@ -393,15 +410,23 @@ Future<Plant> fetchMyPlantDetail(int plantId) async {
 }
 
 // ---------------------- 성장 일지 ----------------------
-// 🟢 [수정] _getAuthHeaders 적용
+// 🟢 [수정] title, logType 파라미터를 받도록 함수 정의 변경
 Future<void> createManualDiary({
   required int plantId,
-  required String logMessage,
+  String? title, // 🟢 [추가] diary_model.dart와 동기화
+  String? logMessage, // 🟢 [수정] 필수가 아닐 수 있으므로 nullable로 변경
   String? imageUrl,
+  String logType = 'NOTE', // 🟢 [추가] 기본값을 'NOTE'로 설정
 }) async {
   final url = Uri.parse('$baseUrl/diary/$plantId/manual');
 
-  final body = <String, dynamic>{'log_message': logMessage};
+  final body = <String, dynamic>{
+    'title': title, // 🟢 [추가] body에 title 포함
+    'log_message': logMessage ?? '', // 🟢 [수정] null일 경우 빈 문자열 전송
+    'log_type': logType, // 🟢 [추가] body에 logType 포함
+  };
+
+  // 이미지가 있으면 body에 추가
   if (imageUrl != null) body['image_url'] = imageUrl;
 
   final response = await http.post(
@@ -428,7 +453,15 @@ Future<String> uploadMedia(File imageFile) async {
   final headers = await _getAuthHeaders(isJson: false);
   request.headers.addAll(headers);
 
-  request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+  // 🟢 [수정] contentType을 명시적으로 추가하여 "이미지 파일만" 오류 해결
+  request.files.add(
+    await http.MultipartFile.fromPath(
+      'image',
+      imageFile.path,
+      // 🟢 이 부분이 추가되었습니다 (diagnosePlant 함수 참고)
+      contentType: MediaType('image', 'jpeg'),
+    ),
+  );
 
   final streamedResponse = await request.send();
   final response = await http.Response.fromStream(streamedResponse);
@@ -473,6 +506,7 @@ class DiaryEntry {
   final DateTime createdAt;
   final String logType; // DIAGNOSIS, WATERING, BIRTHDAY, NOTE, PHOTO
   final String logMessage;
+  final String? title;
   final String? imageUrl;
   final int? referenceId;
 
@@ -482,6 +516,7 @@ class DiaryEntry {
     required this.createdAt,
     required this.logType,
     required this.logMessage,
+    this.title,
     this.imageUrl,
     this.referenceId,
   });
@@ -493,6 +528,7 @@ class DiaryEntry {
       createdAt: DateTime.parse(json['created_at']),
       logType: json['log_type'],
       logMessage: json['log_message'] ?? '',
+      title: json['title'],
       imageUrl: json['image_url'],
       referenceId: json['reference_id'],
     );

@@ -15,6 +15,26 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> {
   final _codeController = TextEditingController();
   bool _isLoading = false; // 로딩 상태 표시
 
+  // 🟢 [추가] initState: 컨트롤러 리스너 추가
+  @override
+  void initState() {
+    super.initState();
+    // 🟢 TextField의 텍스트가 변경될 때마다 setState를 호출하여 화면을 갱신합니다.
+    _codeController.addListener(() {
+      setState(() {
+        // 이 안은 비워둡니다.
+        // setState() 호출 자체가 build 메서드를 다시 실행시켜 버튼 상태를 갱신합니다.
+      });
+    });
+  }
+
+  // 🟢 [추가] dispose: 컨트롤러 리소스 해제
+  @override
+  void dispose() {
+    _codeController.dispose(); // 컨트롤러를 꼭 해제해야 합니다.
+    super.dispose();
+  }
+
   Future<void> _verifyCode() async {
     setState(() => _isLoading = true); // 로딩 시작
 
@@ -35,7 +55,7 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('인증 실패: $e')));
     } finally {
-      setState(() => _isLoading = false); // 로딩 종료
+      if (mounted) setState(() => _isLoading = false); // 로딩 종료
     }
   }
 
@@ -63,10 +83,10 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              // 로딩 중일 때는 버튼 비활성화
+              // 🟢 [수정] 이제 이 조건이 텍스트가 변경될 때마다 다시 계산됩니다.
               onPressed: _isLoading || _codeController.text.length != 6
-                  ? null
-                  : _verifyCode,
+                  ? null // 👈 비활성화
+                  : _verifyCode, // 👈 활성화
               child: _isLoading
                   ? const SizedBox(
                       height: 20,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'model/plant.dart';
-import 'model/api.dart';
+import 'model/api.dart'; // 🟢 api.dart의 함수들 (markAsWatered, snoozeWatering)
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'plant_info.dart';
 
@@ -13,7 +13,8 @@ class NotificationScreen extends StatefulWidget {
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  final _storage = const FlutterSecureStorage();
+  // 🟢 _storage 변수는 사용되지 않으므로 제거해도 무방합니다. (유지해도 상관 없음)
+  // final _storage = const FlutterSecureStorage();
 
   // 버튼이 사라질 알림 ID를 저장
   final Set<int> _wateredOrSnoozedNotifications = {};
@@ -21,7 +22,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   // 로컬에서 화면용으로 마지막 물 준 시간 저장
   final Map<int, DateTime> _tempLastWateredAt = {};
 
-  // 🚨 [제거] _getAccessToken 함수는 api.dart의 함수들이 내부적으로 처리하므로 제거됩니다.
+  // 🟢 [제거] _getAccessToken 함수 제거
   /*
   Future<String> _getAccessToken() async {
     final accessToken = await _storage.read(key: 'accessToken');
@@ -35,9 +36,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   // ---------------- 물 줬어요 버튼 ----------------
   Future<void> _handleWatering(int notificationId, int plantId) async {
     try {
-      // 🚨 [수정] 토큰을 로컬에서 가져오는 로직과 인자 전달 제거
+      // 🟢 [제거] accessToken 가져오는 로직 제거
       // final accessToken = await _getAccessToken();
-      await markAsWatered(plantId); // 🟢 수정: accessToken 인자 제거
+
+      // 🟢 [수정] api.dart의 함수를 바로 호출 (인증은 api.dart가 처리)
+      await markAsWatered(plantId);
 
       setState(() {
         _wateredOrSnoozedNotifications.add(notificationId);
@@ -57,9 +60,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   // ---------------- 하루 미루기 버튼 ----------------
   Future<void> _handleSnooze(int notificationId, int plantId) async {
     try {
-      // 🚨 [수정] 토큰을 로컬에서 가져오는 로직과 인자 전달 제거
+      // 🟢 [제거] accessToken 가져오는 로직 제거
       // final accessToken = await _getAccessToken();
-      await snoozeWatering(plantId); // 🟢 수정: accessToken 인자 제거
+
+      // 🟢 [수정] api.dart의 함수를 바로 호출
+      await snoozeWatering(plantId);
 
       setState(() {
         _wateredOrSnoozedNotifications.add(notificationId);
@@ -77,6 +82,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (build 메서드는 기존 코드와 동일) ...
     const Color primaryColor = Color(0xFFA4B6A4);
 
     // myPlants 기반으로 물주기 알림 생성

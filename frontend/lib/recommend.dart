@@ -1,16 +1,13 @@
-// lib/screens/recommend.dart 파일 전체 (최종 수정 및 안정화)
-
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:dio/dio.dart'; // DioError, Response 사용
-// 🚨 [수정] http 및 flutter_secure_storage import 제거
+// 🟢 [수정] http 및 flutter_secure_storage import 제거
+// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// import 'dart:convert';
+// import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart'; // 🟢 DioError 처리를 위해 Dio 임포트
 import 'recommend_result.dart';
 import 'model/plant.dart';
 // 🟢 [수정] api.dart를 'api' 별칭으로 임포트하여 sendRecommendationRequest 사용
 import 'package:flutter_application_1/model/api.dart' as api;
-
-// 설문조사 단계를 나타내는 Enum (예시)
-enum RecommendStep { place, sunlight, experience, pets, difficulty, complete }
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -20,8 +17,7 @@ class RecommendScreen extends StatefulWidget {
 }
 
 class _RecommendScreenState extends State<RecommendScreen> {
-  // 🚨 [수정] 초기값 1 대신 Enum 사용에 맞게 변경
-  RecommendStep _currentStep = RecommendStep.place;
+  int _currentStep = 1;
 
   final Map<String, dynamic> _answers = {
     "place": null,
@@ -31,119 +27,40 @@ class _RecommendScreenState extends State<RecommendScreen> {
     "desired_difficulty": null,
   };
 
-  // 🚨 [수정] _accessToken 변수 및 _apiUrl 제거
-  // String? _accessToken;
-  // final String _apiUrl = ...;
+  // 🟢 [추가] Dio 로딩 상태 변수
   bool _isLoading = false;
 
+  // 🟢 [제거] _accessToken, _apiUrl, _loadAccessToken 함수 제거
+  /*
+  String? _accessToken;
+  final String _apiUrl = '...'; 
   @override
   void initState() {
     super.initState();
-    // 🚨 [수정] _loadAccessToken() 함수 제거
+    _loadAccessToken();
   }
+  Future<void> _loadAccessToken() async { ... }
+  */
 
   void _nextStep() {
     setState(() {
-      // 🚨 [수정] Enum 인덱스 증가를 통해 다음 단계로 이동
-      if (_currentStep.index < RecommendStep.complete.index) {
-        _currentStep = RecommendStep.values[_currentStep.index + 1];
-      }
+      _currentStep++;
     });
   }
 
   void _prevStep() {
-    if (_currentStep.index > RecommendStep.place.index) {
+    if (_currentStep > 1) {
       setState(() {
-        _currentStep = RecommendStep.values[_currentStep.index - 1];
+        _currentStep--;
       });
     } else {
       Navigator.of(context).pop();
     }
   }
 
-  // 에러 메시지를 사용자에게 표시하는 헬퍼 함수
-  void _showError(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  // -----------------------------------------------------
-  // 🟢 [수정] Dio 기반 API 요청 로직으로 완전히 변경
-  // -----------------------------------------------------
-  void _startLoading() async {
-    // 이미 로딩 중이면 중복 실행 방지
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // 🚨 최종 API 요청 바디 구성 (5가지 필수 필드 + limit)
-      final requestData = {
-        "place": _answers["place"],
-        "sunlight": _answers["sunlight"],
-        "experience": _answers["experience"],
-        "has_pets": _answers["has_pets"] == true, // Boolean 값으로 변환
-        "desired_difficulty": _answers["desired_difficulty"],
-        "limit": 3,
-      };
-
-      // 🟢 [핵심 수정] api.dart의 Dio 기반 요청 함수 사용
-      final Response response = await api.sendRecommendationRequest(
-        requestData,
-      );
-
-      if (response.statusCode == 200) {
-        // Dio 응답은 response.data로 접근
-        final List<dynamic> data =
-            response.data['recommendations'] as List<dynamic>;
-        final List<Plant> recommendations = data
-            .map<Plant>((item) => Plant.fromJson(item))
-            .toList();
-
-        if (mounted) {
-          // 결과 화면 이동 시 스택 정리 (route.isFirst: 메인 화면만 남김)
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ResultScreen(recommendations: recommendations),
-            ),
-            (route) => route.isFirst,
-          );
-        }
-      } else {
-        if (mounted) {
-          setState(
-            () => _currentStep = RecommendStep.difficulty,
-          ); // 난이도 질문으로 복귀
-          _showError('추천 정보를 가져오는 데 실패했습니다. 코드: ${response.statusCode}');
-        }
-      }
-    } on DioError catch (e) {
-      if (mounted) {
-        setState(() => _currentStep = RecommendStep.difficulty); // 난이도 질문으로 복귀
-        _showError('서버 연결 오류: ${e.response?.data ?? e.message}');
-      }
-    } on Exception catch (e) {
-      if (mounted) {
-        setState(() => _currentStep = RecommendStep.difficulty); // 난이도 질문으로 복귀
-        _showError('알 수 없는 오류 발생: $e');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    // 🟢 [수정] _buildLoadingScreen이 _isLoading 상태를 표시하도록 변경
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -158,21 +75,21 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 🚨 총 5단계 질문 + 6단계 로딩으로 구성
   Widget _buildStepContent() {
     switch (_currentStep) {
-      case RecommendStep.place:
-        return _buildQuestion1(); // 1. 장소 (place)
-      case RecommendStep.experience:
-        return _buildQuestion2(); // 2. 경험 (experience)
-      case RecommendStep.pets:
-        return _buildQuestion3(); // 3. 반려동물 (has_pets)
-      case RecommendStep.sunlight:
-        return _buildQuestion4(); // 4. 햇빛 (sunlight)
-      case RecommendStep.difficulty:
-        return _buildQuestion5(); // 5. 난이도 (desired_difficulty)
-      case RecommendStep.complete:
-        return _buildLoadingScreen(); // 6. 로딩 시작
+      case 1:
+        return _buildQuestion1();
+      case 2:
+        return _buildQuestion2();
+      case 3:
+        return _buildQuestion3();
+      case 4:
+        return _buildQuestion4();
+      case 5:
+        return _buildQuestion5();
+      case 6:
+        // 🟢 _buildLoadingScreen()이 _isLoading 상태를 사용
+        return _buildLoadingScreen();
       default:
         return const SizedBox.shrink();
     }
@@ -182,7 +99,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _buildQuestion1() {
     return _buildQuestion(
       title: "어디서 식물을 키우실 건가요?",
-      fieldName: "place", // 필드명 추가
       options: [
         _optionTile(Icons.window, "창가", "window"),
         _optionTile(Icons.home, "실내", "indoor"),
@@ -195,7 +111,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _buildQuestion2() {
     return _buildQuestion(
       title: "식물 관리 경험은 어느 정도인가요?",
-      fieldName: "experience",
       options: [
         _optionTile(Icons.emoji_people, "초보", "beginner"),
         _optionTile(Icons.spa, "경험자", "intermediate"),
@@ -208,7 +123,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _buildQuestion3() {
     return _buildQuestion(
       title: "반려동물과 함께 지내시나요?",
-      fieldName: "has_pets",
       options: [
         _optionTile(Icons.pets, "예", true),
         _optionTile(Icons.close, "아니오", false),
@@ -220,7 +134,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _buildQuestion4() {
     return _buildQuestion(
       title: "식물이 받을 햇빛은 어느 정도인가요?",
-      fieldName: "sunlight",
       options: [
         _optionTile(Icons.wb_sunny, "적음", "low"),
         _optionTile(Icons.wb_sunny, "보통", "medium"),
@@ -233,7 +146,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _buildQuestion5() {
     return _buildQuestion(
       title: "선호하는 관리 난이도는 어느 정도인가요?",
-      fieldName: "desired_difficulty",
       options: [
         _optionTile(Icons.sentiment_very_satisfied, "쉬움 (하)", "하"),
         _optionTile(Icons.sentiment_neutral, "보통 (중)", "중"),
@@ -242,10 +154,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 질문 공통 위젯 - 값 저장 로직 통합
+  // 질문 공통 위젯
   Widget _buildQuestion({
     required String title,
-    required String fieldName,
     required List<Widget> options,
   }) {
     return SingleChildScrollView(
@@ -272,55 +183,29 @@ class _RecommendScreenState extends State<RecommendScreen> {
             ),
           ),
           const SizedBox(height: 50),
-          ...options.map((option) {
-            // 옵션 타일 위젯의 onTap 로직을 여기서 바인딩합니다.
-            if (option is GestureDetector) {
-              return option; // 이미 GestureDetector로 래핑된 경우
-            }
-            return option;
-          }).toList(),
+          ...options,
         ],
       ),
     );
   }
 
-  // 옵션 카드 (원래 로직에 맞게 onTap 내부 로직을 수정합니다.)
+  // 옵션 카드
   Widget _optionTile(IconData icon, String label, dynamic value) {
-    // 🚨 _optionTile은 내부에서 어떤 질문인지 알 수 없으므로, Question 위젯 내에서 onTap 로직을 완성합니다.
     return GestureDetector(
       onTap: () {
-        // 🚨 Enum에 맞게 현재 단계에 따른 fieldName을 결정하여 값 저장
-        String fieldName = '';
-        switch (_currentStep) {
-          case RecommendStep.place:
-            fieldName = "place";
-            break;
-          case RecommendStep.experience:
-            fieldName = "experience";
-            break;
-          case RecommendStep.pets:
-            fieldName = "has_pets";
-            break;
-          case RecommendStep.sunlight:
-            fieldName = "sunlight";
-            break;
-          case RecommendStep.difficulty:
-            fieldName = "desired_difficulty";
-            break;
-          default:
-            return;
-        }
+        if (_currentStep == 1) _answers["place"] = value;
+        if (_currentStep == 2) _answers["experience"] = value;
+        if (_currentStep == 3) _answers["has_pets"] = value;
+        if (_currentStep == 4) _answers["sunlight"] = value;
+        if (_currentStep == 5) _answers["desired_difficulty"] = value;
 
-        _answers[fieldName] = value;
-
-        // 🚨 5단계 질문 후, 6단계 로딩으로 이동 및 로딩 시작
-        if (_currentStep == RecommendStep.difficulty) {
-          setState(() {
-            _currentStep = RecommendStep.complete;
-          });
-          _startLoading();
-        } else {
+        if (_currentStep < 5) {
           _nextStep();
+        } else if (_currentStep == 5) {
+          setState(() {
+            _currentStep = 6;
+          });
+          _startLoading(); // 🟢 로딩 시작
         }
       },
       child: SizedBox(
@@ -352,6 +237,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
   // 로딩 화면
   Widget _buildLoadingScreen() {
+    // 🟢 _isLoading 상태를 반영하여 텍스트 변경
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -359,11 +245,82 @@ class _RecommendScreenState extends State<RecommendScreen> {
           const CircularProgressIndicator(color: Color(0xFFA4B6A4)),
           const SizedBox(height: 40),
           Text(
-            _isLoading ? "AI가 당신에게 맞는 식물을 찾고 있어요..." : "로딩 완료 (화면 전환 대기 중)",
+            _isLoading ? "AI가 당신에게 맞는 식물을 찾고 있어요..." : "요청 완료 대기 중...",
             style: const TextStyle(fontSize: 18),
           ),
         ],
       ),
     );
+  }
+
+  // 🟢 [수정] api.dart의 Dio 함수를 사용하도록 로직 전체 변경
+  void _startLoading() async {
+    // 이미 로딩 중이면 중복 실행 방지
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 1. 요청 데이터 준비
+      final requestData = {
+        "place": _answers["place"],
+        "sunlight": _answers["sunlight"],
+        "experience": _answers["experience"],
+        "has_pets": _answers["has_pets"],
+        "desired_difficulty": _answers["desired_difficulty"],
+        "limit": 3,
+      };
+
+      // 2. api.dart 함수 호출 (인증은 api.dart가 내부적으로 처리)
+      final Response response = await api.sendRecommendationRequest(
+        requestData,
+      );
+
+      // 3. 🟢 [핵심 수정] 서버가 Map이 아닌 List를 직접 반환하므로, response.data를 List로 받습니다.
+      // ❌ final List<dynamic> data = response.data['recommendations'] as List<dynamic>;
+      final List<dynamic> data = response.data as List<dynamic>;
+
+      final List<Plant> recommendations = data
+          .map<Plant>((item) => Plant.fromJson(item))
+          .toList();
+
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ResultScreen(recommendations: recommendations),
+          ),
+        );
+      }
+    } on DioError catch (e) {
+      // DioError (서버 4xx, 5xx 에러 등)
+      print("Dio 에러 발생: ${e.response?.data ?? e.message}");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _currentStep = 5; // 5단계로 복귀
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('추천 실패: ${e.response?.data?['detail'] ?? '서버 오류'}'),
+          ),
+        );
+      }
+    } catch (e) {
+      // 🟢 'String' is not a subtype of 'int' 오류가 여기서 잡혔습니다.
+      print("서버 연결 실패: $e");
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _currentStep = 5; // 5단계로 복귀
+        });
+        ScaffoldMessenger.of(
+          context,
+          // 🟢 오류 메시지를 좀 더 명확하게 변경
+        ).showSnackBar(const SnackBar(content: Text('데이터 처리 중 오류가 발생했습니다.')));
+      }
+    }
   }
 }

@@ -1,15 +1,17 @@
-// lib/screens/main_screen.dart 파일의 HomePage 클래스 전체 (수정)
+// lib/screens/main_screen.dart 파일 전체 (수정 완료)
 
 import 'package:flutter/material.dart';
 import 'my_plant_screen.dart';
 import 'my_info.dart';
 import 'notification.dart';
-import 'chatbot.dart';
+// 🚨 [수정 1] chatbot.dart import를 제거
+// import 'chatbot.dart';
+// 🟢 [수정 1] chat_list_screen.dart import를 추가 (경로가 lib/chat_list_screen.dart라고 가정)
+import 'package:flutter_application_1/chat_list_screen.dart';
 import 'encyclopedia_list.dart';
 import 'plant_diary.dart';
 import 'recommend.dart';
 import 'diagnosis_screen.dart';
-// 🟢 [수정] 올바른 경로로 CommunityListScreen 임포트
 import 'screens/community_list_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -181,19 +183,23 @@ class HomePage extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 10), // 카드 사이의 세로 간격
+                // 🟢 [핵심 수정 2] 'AI 챗봇' 카드
                 _buildFeatureCard(
                   context,
                   title: 'AI 챗봇',
                   icon: Icons.chat_bubble_outline,
                   onTap: () {
+                    // 🚨 기존 ChatbotScreen(userName: userName) 호출 대신
+                    // 🟢 ChatListScreen()을 호출하도록 수정
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => ChatbotScreen(userName: userName),
+                        builder: (context) => const ChatListScreen(),
                       ),
                     );
                   },
                 ),
+
                 const SizedBox(height: 10), // 카드 사이의 세로 간격
                 _buildFeatureCard(
                   context,
@@ -214,7 +220,6 @@ class HomePage extends StatelessWidget {
                   title: '커뮤니티',
                   icon: Icons.people_alt_outlined, // 커뮤니티 아이콘 사용
                   onTap: () {
-                    // 🟢 [수정] 커뮤니티 화면(CommunityListScreen)으로 이동하는 로직
                     Navigator.push(
                       context,
                       MaterialPageRoute(
