@@ -1,5 +1,3 @@
-// lib/screens/recommend.dart 파일 전체 (최종 수정)
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
@@ -21,8 +19,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
   final Map<String, dynamic> _answers = {
     "place": null,
     "experience": null,
-    "pets": null,
+    "has_pets": null, // Boolean 값 저장 (true/false)
     "sunlight": null,
+    "desired_difficulty": null, // 난이도 필드 추가 (하, 중, 상)
   };
 
   String? _accessToken;
@@ -35,7 +34,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   Future<void> _loadAccessToken() async {
-    const storage = FlutterSecureStorage();
+    final storage = const FlutterSecureStorage();
     final token = await storage.read(key: 'accessToken');
     setState(() {
       _accessToken = token;
@@ -84,7 +83,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       case 3:
         return _buildQuestion3(); // 3. 반려동물 (has_pets)
       case 4:
-        return _buildQuestion4();
+        return _buildQuestion4(); // 4. 햇빛 (sunlight)
       case 5:
         return _buildQuestion5(); // 🚨 5. 난이도 (desired_difficulty)
       case 6:
@@ -146,9 +145,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
     return _buildQuestion(
       title: "선호하는 관리 난이도는 어느 정도인가요?",
       options: [
-        _optionTile(Icons.sentiment_very_satisfied, "쉬움", "하"),
-        _optionTile(Icons.sentiment_neutral, "보통", "중"),
-        _optionTile(Icons.sentiment_very_dissatisfied, "어려움", "상"),
+        _optionTile(Icons.sentiment_very_satisfied, "쉬움 (하)", "하"),
+        _optionTile(Icons.sentiment_neutral, "보통 (중)", "중"),
+        _optionTile(Icons.sentiment_very_dissatisfied, "어려움 (상)", "상"),
       ],
     );
   }
@@ -192,28 +191,20 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _optionTile(IconData icon, String label, dynamic value) {
     return GestureDetector(
       onTap: () {
-        // 🚨 마지막 단계(4단계)인지 먼저 확인합니다.
-        final bool isFinalAnswer = _currentStep == 4;
+        // 🚨 5단계 질문에 맞춰 값 저장 로직 변경
+        if (_currentStep == 1) _answers["place"] = value;
+        if (_currentStep == 2) _answers["experience"] = value;
+        if (_currentStep == 3) _answers["has_pets"] = value; 
+        if (_currentStep == 4) _answers["sunlight"] = value;
+        if (_currentStep == 5) _answers["desired_difficulty"] = value; 
 
-        setState(() {
-          // 답변 저장
-          if (_currentStep == 1)
-            _answers["place"] = value;
-          else if (_currentStep == 2)
-            _answers["experience"] = value;
-          else if (_currentStep == 3)
-            _answers["pets"] = value;
-          else if (_currentStep == 4)
-            _answers["sunlight"] = value;
-
-          // 마지막 단계가 아니면 다음 단계로 이동합니다.
-          if (!isFinalAnswer) {
-            _nextStep();
-          }
-        });
-
-        // 마지막 질문에 답했다면, 로딩 및 API 호출을 시작합니다.
-        if (isFinalAnswer) {
+        // 🚨 5단계 질문 후, 6단계 로딩으로 이동
+        if (_currentStep < 5) {
+          _nextStep();
+        } else if (_currentStep == 5) {
+          setState(() {
+            _currentStep = 6;
+          });
           _startLoading();
         }
       },
@@ -259,68 +250,67 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   void _startLoading() async {
-    // 5단계로 UI를 전환하고 1초 지연 후 API 호출 시작
-    setState(() => _currentStep = 5);
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 1)); 
+
+    if (_accessToken == null) {
+      if (mounted) {
+        setState(() => _currentStep = 5); // 5단계(난이도 질문)로 복귀
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인이 필요합니다.')),
+        );
+      }
+      return;
+    }
 
     try {
-      if (_accessToken == null) return;
-
-      // 🚨 [422 에러 해결] Bool 값을 String으로 변환하여 서버가 거부하지 않도록 합니다.
-      final Map<String, dynamic> requestData = {
-        "place": _answers["place"],
-        "experience": _answers["experience"],
-        "pets": _answers["pets"]?.toString(),
-        "sunlight": _answers["sunlight"],
-      };
-
+      // 🚨 최종 API 요청 바디 구성 (5가지 필수 필드 + limit)
       final response = await http.post(
-        Uri.parse('https://feb991a69212.ngrok-free.app/recommendations/ml'),
+        Uri.parse(_apiUrl), 
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_accessToken',
         },
-        body: jsonEncode(requestData),
+        body: jsonEncode({
+          "place": _answers["place"],
+          "sunlight": _answers["sunlight"],
+          "experience": _answers["experience"],
+          "has_pets": _answers["has_pets"], 
+          "desired_difficulty": _answers["desired_difficulty"], 
+          "limit": 3, // API 명세에 따라 10으로 설정
+        }),
       );
 
       if (response.statusCode == 200) {
-        // 🚨 [오류 수정] response.body 대신 response.bodyBytes를 사용하여 String/List<int> 오류 해결
-        final String responseBody = utf8.decode(response.bodyBytes);
-        final List<dynamic> data = jsonDecode(responseBody);
+        final List<dynamic> data = jsonDecode(response.body);
         final List<Plant> recommendations = data
             .map<Plant>((item) => Plant.fromJson(item))
             .toList();
 
         if (mounted) {
-          // isFirst (MainScreen)만 남기고 이동합니다.
-          Navigator.pushAndRemoveUntil(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => ResultScreen(recommendations: recommendations),
             ),
-            (Route<dynamic> route) => route.isFirst,
           );
         }
       } else {
+        print("서버 에러 발생: ${response.statusCode}");
+        print("응답 본문: ${response.body}");
         if (mounted) {
+          setState(() => _currentStep = 5); // 5단계로 복귀
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '추천 실패: 서버 오류 ${response.statusCode} - ${utf8.decode(response.bodyBytes)}',
-              ),
-            ),
+            const SnackBar(content: Text('추천 정보를 가져오는 데 실패했습니다.')),
           );
-          // 실패 시 첫 단계로 복귀
-          setState(() => _currentStep = 1);
         }
       }
     } catch (e) {
+      print("서버 연결 실패: $e");
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('추천 실패: 연결 오류 $e')));
-        // 실패 시 첫 단계로 복귀
-        setState(() => _currentStep = 1);
+        setState(() => _currentStep = 5); // 5단계로 복귀
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+        );
       }
     }
   }
