@@ -1,6 +1,7 @@
 # crud.py
 from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 import models, schemas
 from core.security import get_password_hash
 from datetime import datetime, timedelta, timezone
@@ -248,13 +249,27 @@ def snooze_notification_for_plant(db: Session, plant_id: int) -> models.Plant:
         db.refresh(plant)
     return plant
 
-# ⭐️ FCM 푸시 토큰 저장/갱신
-def update_user_push_token(db: Session, user_id: int, token: str) -> models.User:
+# ⭐️ FCM 푸시 토큰 저장/갱신 (중복 토큰 처리 포함)
+def update_user_push_token(db: Session, user_id: int, token: str) -> Optional[models.User]:
+    # 1) 이 토큰을 이미 쓰고 있는 “다른” 사용자들의 토큰을 먼저 지운다.
+    if token:
+        other_users = (
+            db.query(models.User)
+            .filter(models.User.push_token == token, models.User.id != user_id)
+            .all()
+        )
+        for u in other_users:
+            u.push_token = None
+
+    # 2) 현재 사용자에게 토큰 설정
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    if user:
-        user.push_token = token
-        db.commit()
-        db.refresh(user)
+    if not user:
+        return None
+
+    user.push_token = token  # token == "" 이면 그냥 그대로 저장, 원하면 여기서 None 처리해도 됨
+
+    db.commit()
+    db.refresh(user)
     return user
 
 # ==============================================================================
