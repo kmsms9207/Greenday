@@ -3,7 +3,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'model/api.dart';
 import 'model/plant.dart';
 import 'diagnosis_screen.dart';
-import 'plant_diary.dart';
 
 // 전역 변수는 그대로 유지
 final _storage = const FlutterSecureStorage();
@@ -215,13 +214,12 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
                 _leftInfoTile("햇빛", _plant!.lightRequirement),
                 _leftInfoTile("물 주기", _plant!.wateringType),
                 _leftInfoTile(
-                  "물 준 날",
-                  // _lastWateredAt 값이 null이 아닐 때만 포매팅
-                  _lastWateredAt != null
-                      ? _formatDateTime(_lastWateredAt!)
-                      : (_plant!.lastWateredAt != null
-                            ? _formatDateTime(_plant!.lastWateredAt!)
-                            : "정보 없음"),
+                    "물 준 날짜",
+                    _lastWateredAt != null
+                        ? _formatDateTime(_lastWateredAt!)
+                        : (_plant!.lastWateredAt != null
+                              ? _formatDateTime(_plant!.lastWateredAt!)
+                              : ""),
                 ),
                 _leftInfoTile("난이도", _plant!.difficulty),
                 _leftInfoTile("반려동물 안전", _plant!.petSafe ? "안전" : "주의"),

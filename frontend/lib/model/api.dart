@@ -13,7 +13,7 @@ import 'dart:async';
 
 // ---------------------- 설정 ----------------------
 const String baseUrl =
-    "https://f9fae591fe6d.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
+    "https://feb991a69212.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
@@ -412,6 +412,27 @@ Future<void> createManualDiary({
   } else {
     // 🚨 복구: response.body 사용
     throw Exception('성장일지 저장 실패: ${response.statusCode} - ${response.body}');
+  }
+}
+
+// ---------------------- 성장 일지 삭제 ----------------------
+Future<void> deleteManualDiary(int diaryId) async {
+  final accessToken = await _getAccessToken();
+  // 명세: DELETE /diary/{diary_id}/manual
+  final url = Uri.parse('$baseUrl/diary/$diaryId/manual');
+
+  final response = await http.delete( // 👈 DELETE 메소드 사용
+    url,
+    headers: {
+      'Authorization': 'Bearer $accessToken',
+    },
+  );
+
+  // 200 OK 또는 204 No Content 모두 성공으로 처리
+  if (response.statusCode == 200 || response.statusCode == 204) {
+    print('일지 삭제 성공: $diaryId');
+  } else {
+    throw Exception('일지 삭제 실패: ${response.statusCode}');
   }
 }
 

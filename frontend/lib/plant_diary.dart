@@ -32,7 +32,10 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
 
     setState(() => _loading = true);
     try {
+      // fetchDiary가 자동 기록 + 수동 기록 모두 가져오도록
       final diary = await fetchDiary(widget.plantId!);
+      // 최신순으로 정렬
+      diary.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       setState(() {
         _diaryList = diary;
         _loading = false;
@@ -56,7 +59,6 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
     }
   }
 
-  // ------------------- 팝업으로 상세 보기 -------------------
   void _showDiaryDetail(DiaryEntry entry) {
     showDialog(
       context: context,
@@ -77,7 +79,7 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
                 Text(entry.logMessage, style: const TextStyle(fontSize: 18)),
                 const SizedBox(height: 8),
                 Text(
-                  '${entry.logType} • ${entry.createdAt.toLocal()}',
+                  '${_getLogTypeLabel(entry.logType)} • ${entry.createdAt.toLocal()}',
                   style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
@@ -93,52 +95,70 @@ class _PlantDiaryScreenState extends State<PlantDiaryScreen> {
     );
   }
 
+  // logType 별로 한글 라벨/아이콘 매핑
+  String _getLogTypeLabel(String logType) {
+    switch (logType) {
+      case 'DIAGNOSIS':
+        return '🩺 병해충 진단';
+      case 'WATERING':
+        return '💧 물주기';
+      case 'BIRTHDAY':
+        return '🎂 등록일';
+      case 'NOTE':
+        return '📝 메모';
+      case 'PHOTO':
+        return '📸 사진';
+      default:
+        return logType;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('성장 일지'),
         centerTitle: true,
-        backgroundColor: Color(0xFFA4B6A4),
+        backgroundColor: const Color(0xFFA4B6A4),
         foregroundColor: Colors.black87,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _diaryList.isEmpty
-          ? const Center(child: Text('등록된 일지가 없습니다.'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: _diaryList.length,
-              itemBuilder: (context, index) {
-                final entry = _diaryList[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    title: Text(
-                      entry.logMessage,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    subtitle: Text(
-                      '${entry.logType} • ${entry.createdAt.toLocal()}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    trailing: entry.imageUrl != null
-                        ? Image.network(
-                            '$baseUrl${entry.imageUrl}',
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                    onTap: () => _showDiaryDetail(entry), // 클릭 시 팝업
-                  ),
-                );
-              },
-            ),
+              ? const Center(child: Text('등록된 일지가 없습니다.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: _diaryList.length,
+                  itemBuilder: (context, index) {
+                    final entry = _diaryList[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        title: Text(
+                          entry.logMessage,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        subtitle: Text(
+                          '${_getLogTypeLabel(entry.logType)} • ${entry.createdAt.toLocal()}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: entry.imageUrl != null
+                            ? Image.network(
+                                '$baseUrl${entry.imageUrl}',
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        onTap: () => _showDiaryDetail(entry),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openFormScreen,
         child: const Icon(Icons.add),
-        backgroundColor: Color(0xFF486B48),
+        backgroundColor: const Color(0xFF486B48),
       ),
     );
   }

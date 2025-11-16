@@ -14,14 +14,18 @@ class RecommendScreen extends StatefulWidget {
 
 class _RecommendScreenState extends State<RecommendScreen> {
   int _currentStep = 1;
+  
+  // 🚨 API 명세에 맞춰 5가지 필드 모두 포함 및 초기화
   final Map<String, dynamic> _answers = {
     "place": null,
     "experience": null,
-    "pets": null,
-    "sunlight": null, // 서버 API에서 요구하는 필드 추가
+    "has_pets": null, // Boolean 값 저장 (true/false)
+    "sunlight": null,
+    "desired_difficulty": null, // 난이도 필드 추가 (하, 중, 상)
   };
 
   String? _accessToken;
+  final String _apiUrl = 'https://feb991a69212.ngrok-free.app/recommendations/survey'; 
 
   @override
   void initState() {
@@ -69,24 +73,27 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
+  // 🚨 총 5단계 질문 + 6단계 로딩으로 구성
   Widget _buildStepContent() {
     switch (_currentStep) {
       case 1:
-        return _buildQuestion1();
+        return _buildQuestion1(); // 1. 장소 (place)
       case 2:
-        return _buildQuestion2();
+        return _buildQuestion2(); // 2. 경험 (experience)
       case 3:
-        return _buildQuestion3();
+        return _buildQuestion3(); // 3. 반려동물 (has_pets)
       case 4:
-        return _buildQuestion4(); // 햇빛 질문 추가
+        return _buildQuestion4(); // 4. 햇빛 (sunlight)
       case 5:
-        return _buildLoadingScreen();
+        return _buildQuestion5(); // 🚨 5. 난이도 (desired_difficulty)
+      case 6:
+        return _buildLoadingScreen(); // 6. 로딩 시작
       default:
         return const SizedBox.shrink();
     }
   }
 
-  // 첫 번째 질문: 장소
+  // 1. 첫 번째 질문: 장소 (place)
   Widget _buildQuestion1() {
     return _buildQuestion(
       title: "어디서 식물을 키우실 건가요?",
@@ -98,7 +105,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 두 번째 질문: 경험
+  // 2. 두 번째 질문: 경험 (experience) 🚨 복구
   Widget _buildQuestion2() {
     return _buildQuestion(
       title: "식물 관리 경험은 어느 정도인가요?",
@@ -110,7 +117,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 세 번째 질문: 반려동물
+  // 3. 세 번째 질문: 반려동물 (has_pets)
   Widget _buildQuestion3() {
     return _buildQuestion(
       title: "반려동물과 함께 지내시나요?",
@@ -121,7 +128,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 네 번째 질문: 햇빛
+  // 4. 네 번째 질문: 햇빛 (sunlight) 🚨 복구
   Widget _buildQuestion4() {
     return _buildQuestion(
       title: "식물이 받을 햇빛은 어느 정도인가요?",
@@ -133,7 +140,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  // 질문 공통 위젯
+  // 🚨 5. 다섯 번째 질문: 난이도 (desired_difficulty)
+  Widget _buildQuestion5() {
+    return _buildQuestion(
+      title: "선호하는 관리 난이도는 어느 정도인가요?",
+      options: [
+        _optionTile(Icons.sentiment_very_satisfied, "쉬움", "하"),
+        _optionTile(Icons.sentiment_neutral, "보통", "중"),
+        _optionTile(Icons.sentiment_very_dissatisfied, "어려움", "상"),
+      ],
+    );
+  }
+
+  // 질문 공통 위젯 - 기존과 동일
   Widget _buildQuestion({
     required String title,
     required List<Widget> options,
@@ -172,14 +191,22 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget _optionTile(IconData icon, String label, dynamic value) {
     return GestureDetector(
       onTap: () {
-        setState(() {
-          if (_currentStep == 1) _answers["place"] = value;
-          if (_currentStep == 2) _answers["experience"] = value;
-          if (_currentStep == 3) _answers["pets"] = value;
-          if (_currentStep == 4) _answers["sunlight"] = value; // 햇빛 값 저장
-          if (_currentStep < 5) _nextStep();
-          if (_currentStep == 5) _startLoading();
-        });
+        // 🚨 5단계 질문에 맞춰 값 저장 로직 변경
+        if (_currentStep == 1) _answers["place"] = value;
+        if (_currentStep == 2) _answers["experience"] = value;
+        if (_currentStep == 3) _answers["has_pets"] = value; 
+        if (_currentStep == 4) _answers["sunlight"] = value;
+        if (_currentStep == 5) _answers["desired_difficulty"] = value; 
+
+        // 🚨 5단계 질문 후, 6단계 로딩으로 이동
+        if (_currentStep < 5) {
+          _nextStep();
+        } else if (_currentStep == 5) {
+          setState(() {
+            _currentStep = 6;
+          });
+          _startLoading();
+        }
       },
       child: SizedBox(
         width: double.infinity,
@@ -223,18 +250,34 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 
   void _startLoading() async {
-    await Future.delayed(const Duration(seconds: 1)); // 최소 로딩 시간
+    await Future.delayed(const Duration(seconds: 1)); 
+
+    if (_accessToken == null) {
+      if (mounted) {
+        setState(() => _currentStep = 5); // 5단계(난이도 질문)로 복귀
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('로그인이 필요합니다.')),
+        );
+      }
+      return;
+    }
 
     try {
-      if (_accessToken == null) return;
-
+      // 🚨 최종 API 요청 바디 구성 (5가지 필수 필드 + limit)
       final response = await http.post(
-        Uri.parse('https://f9fae591fe6d.ngrok-free.app/recommendations/ml'),
+        Uri.parse(_apiUrl), 
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_accessToken', // 반드시 null 아님 확인 후
+          'Authorization': 'Bearer $_accessToken',
         },
-        body: jsonEncode(_answers),
+        body: jsonEncode({
+          "place": _answers["place"],
+          "sunlight": _answers["sunlight"],
+          "experience": _answers["experience"],
+          "has_pets": _answers["has_pets"], 
+          "desired_difficulty": _answers["desired_difficulty"], 
+          "limit": 10, // API 명세에 따라 10으로 설정
+        }),
       );
 
       if (response.statusCode == 200) {
@@ -244,7 +287,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
             .toList();
 
         if (mounted) {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => ResultScreen(recommendations: recommendations),
@@ -254,10 +297,21 @@ class _RecommendScreenState extends State<RecommendScreen> {
       } else {
         print("서버 에러 발생: ${response.statusCode}");
         print("응답 본문: ${response.body}");
-        print("보낸 데이터: ${jsonEncode(_answers)}");
+        if (mounted) {
+          setState(() => _currentStep = 5); // 5단계로 복귀
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('추천 정보를 가져오는 데 실패했습니다.')),
+          );
+        }
       }
     } catch (e) {
       print("서버 연결 실패: $e");
+      if (mounted) {
+        setState(() => _currentStep = 5); // 5단계로 복귀
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+        );
+      }
     }
   }
 }

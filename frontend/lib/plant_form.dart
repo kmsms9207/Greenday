@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'model/api.dart';
 import 'model/plant.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 final _storage = const FlutterSecureStorage();
 
@@ -25,27 +25,29 @@ class PlantFormScreen extends StatefulWidget {
 class _PlantFormScreenState extends State<PlantFormScreen> {
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _speciesController = TextEditingController();
-  List<String> _suggestions = []; // API에서 받아올 추천 목록
+
+  List<String> _suggestions = [];
+  List<Plant> _allPlants = [];
   String? _serverImageUrl;
-  List<Plant> _allPlants = []; // 전체 식물 목록 저장
   int? _selectedPlantMasterId;
 
   @override
   void initState() {
     super.initState();
-    fetchPlantList()
-        .then((plants) {
-          setState(() {
-            _allPlants = plants;
-          });
-        })
-        .catchError((e) {
-          print('전체 식물 목록 불러오기 실패: $e');
-        });
+    _fetchAllPlants();
   }
 
-  // 서버에 식물 저장 후 생성된 Plant 객체 반환
-  Future<Plant> savePlantToServer(Plant plant) async {
+  Future<void> _fetchAllPlants() async {
+    try {
+      final plants = await fetchPlantList();
+      setState(() => _allPlants = plants);
+    } catch (e) {
+      print('전체 식물 목록 불러오기 실패: $e');
+    }
+  }
+
+  // 서버에 식물 저장
+  Future<Plant> _savePlantToServer(Plant plant) async {
     if (_selectedPlantMasterId == null) {
       throw Exception('서버 식물 ID가 선택되지 않았습니다.');
     }
@@ -75,15 +77,14 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     }
   }
 
-  // 저장 버튼 클릭
   Future<void> _savePlant() async {
-    final nickname = _nicknameController.text;
-    final species = _speciesController.text;
+    final nickname = _nicknameController.text.trim();
+    final species = _speciesController.text.trim();
 
     if (nickname.isEmpty || species.isEmpty || _selectedPlantMasterId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('식물의 별명과 종을 정확히 선택해주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('식물의 별명과 종을 정확히 선택해주세요.')),
+      );
       return;
     }
 
@@ -101,22 +102,22 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
     );
 
     try {
-      final savedPlant = await savePlantToServer(newPlant);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('식물이 서버에 저장되었습니다.')));
-      Navigator.pop(context, savedPlant); // 이전 화면으로 등록된 식물 전달
+      final savedPlant = await _savePlantToServer(newPlant);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('식물이 서버에 저장되었습니다.')),
+      );
+      Navigator.pop(context, savedPlant);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('서버 저장 실패: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('서버 저장 실패: $e')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // 전체 배경
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         toolbarHeight: 50,
@@ -152,13 +153,20 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
                   controller: _speciesController,
                   hint: "식물의 종을 입력해 주세요.",
                   suggestions: _suggestions,
-                  onChanged: (value) async {
+                  onChanged: (value) {
                     if (value.isEmpty) {
                       setState(() => _suggestions = []);
                       return;
                     }
-                    final suggestions = await fetchPlantSpecies(value);
-                    setState(() => _suggestions = suggestions);
+
+                    final filtered = _allPlants
+                        .where((p) =>
+                            p.nameKo.contains(value) ||
+                            p.species.contains(value))
+                        .map((p) => p.nameKo) // 한글 이름으로 표시
+                        .toList();
+
+                    setState(() => _suggestions = filtered);
                   },
                   onSuggestionTap: (s) {
                     _speciesController.text = s;
@@ -166,7 +174,7 @@ class _PlantFormScreenState extends State<PlantFormScreen> {
 
                     try {
                       final matchedPlant = _allPlants.firstWhere(
-                        (p) => p.nameKo == s || p.species == s,
+                        (p) => p.nameKo == s,
                         orElse: () => throw Exception('선택한 식물을 서버에서 찾을 수 없음'),
                       );
 
@@ -297,10 +305,7 @@ Widget inputCardWithSuggestions({
           height: 150,
           child: ListView(
             children: suggestions
-                .map(
-                  (s) =>
-                      ListTile(title: Text(s), onTap: () => onSuggestionTap(s)),
-                )
+                .map((s) => ListTile(title: Text(s), onTap: () => onSuggestionTap(s)))
                 .toList(),
           ),
         ),

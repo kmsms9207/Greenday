@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'model/api.dart'; // diagnosePlant, fetchRemedy
+import 'model/api.dart'; // diagnosePlant, fetchRemedy, uploadMedia, createManualDiary
 import 'model/diagnosis_model.dart'; // DiagnosisResponse
 import 'remedy_screen.dart'; // RemedyScreen
 
 class DiagnosisScreen extends StatefulWidget {
-  final int plantId; // 1. 필수: plantId 필드 추가
+  final int plantId; // 필수: plantId
   const DiagnosisScreen({super.key, required this.plantId});
 
   @override
@@ -18,25 +18,20 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
   DiagnosisResponse? _diagnosisResult;
-  List<String> _immediateActions = []; // 사용자 처리 추천 목록 (fetchRemedy에서 가져옴)
+  List<String> _immediateActions = []; // 사용자 처리 추천 목록
 
-  // 갤러리 이미지 선택 함수
+  // 갤러리 이미지 선택
   Future<void> _pickImageFromGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      _resetState(File(image.path));
-    }
+    if (image != null) _resetState(File(image.path));
   }
 
-  // 카메라로 사진 촬영 함수
+  // 카메라 촬영
   Future<void> _takePhotoWithCamera() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-    if (image != null) {
-      _resetState(File(image.path));
-    }
+    if (image != null) _resetState(File(image.path));
   }
 
-  // 상태 초기화 함수
   void _resetState(File imageFile) {
     setState(() {
       _selectedImage = imageFile;
@@ -47,9 +42,8 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   Future<void> _handleDiagnosis() async {
     if (_selectedImage == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('진단할 식물 사진을 먼저 선택해주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('진단할 식물 사진을 먼저 선택해주세요.')));
       return;
     }
 
@@ -60,7 +54,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
 
     try {
-      // 2. 필수: widget.plantId로 접근 및 diagnosePlant 호출 (인수 2개 전달)
+      // 1️⃣ File 그대로 diagnosePlant 호출
       final result = await diagnosePlant(_selectedImage!, widget.plantId);
 
       setState(() {
@@ -68,21 +62,30 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       });
 
       if (result.isSuccess) {
-        // 진단 성공 시 해결 방법의 즉각적인 액션 정보를 미리 가져옴
+        // 2️⃣ 즉각적인 액션 정보 가져오기
         final remedy = await fetchRemedy(result.label);
         setState(() {
           _immediateActions = remedy.immediateActions;
         });
 
-        // 3. 불필요한 Navigator.pop 로직 제거 (화면 닫지 않고 결과 표시)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${result.labelKo} 진단 완료')));
+        // 3️⃣ 자동 성장 일지 기록
+        try {
+          final uploadedImageUrl = await uploadMedia(_selectedImage!);
+          await createManualDiary(
+            plantId: widget.plantId,
+            logMessage: '[${result.labelKo}] 진단 완료',
+            imageUrl: uploadedImageUrl,
+          );
+        } catch (e) {
+          print('자동 일지 기록 실패: $e');
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${result.labelKo} 진단 완료')));
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('진단에 실패했습니다: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('진단에 실패했습니다: $e')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -92,8 +95,6 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
   void _navigateToRemedy() {
     if (_diagnosisResult == null || !_diagnosisResult!.isSuccess) return;
-
-    // 해결 방법 화면으로 이동
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -111,23 +112,14 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 이미지 표시 영역
             _buildImageDisplay(),
             const SizedBox(height: 16),
-
-            // 4. 갤러리/카메라 버튼을 Row로 묶어 나란히 표시
             _buildImagePickerRow(),
-
             const SizedBox(height: 24),
-
-            // 진단하기 버튼
             _buildDiagnosisButton(),
-
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 24),
-
-            // 결과 섹션
             _buildResultSection(),
           ],
         ),
@@ -210,18 +202,16 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
           if (_immediateActions.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Text(
-              '사용자 처리 추천 (FetchRemedy에서 가져옴):',
+              '사용자 처리 추천:',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             ..._immediateActions
                 .map((e) => Text('• $e', style: const TextStyle(fontSize: 16)))
                 .toList(),
           ],
-
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _navigateToRemedy,
@@ -243,7 +233,8 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _diagnosisResult!.reasonKo ?? 'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
+            _diagnosisResult!.reasonKo ??
+                'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
             style: const TextStyle(fontSize: 16),
           ),
         ],
