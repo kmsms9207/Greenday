@@ -31,25 +31,42 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
   @override
   void initState() {
     super.initState();
-    // 초기 위젯의 plant 객체를 먼저 설정 (로딩 실패 시 대비)
     _plant = widget.plant;
+    _lastWateredAt = widget.plant.lastWateredAt;
     _fetchPlantDetail();
   }
 
   Future<void> _fetchPlantDetail() async {
     try {
       final updatedPlant = await fetchMyPlantDetail(widget.plant.id);
-      setState(() {
-        _plant = updatedPlant;
-        // 서버에서 lastWateredAt 정보가 있다면 반영 (현재 Plant 모델에 해당 필드가 있다고 가정)
-        // _lastWateredAt = updatedPlant.lastWateredAt;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _plant = updatedPlant;
+          _lastWateredAt = updatedPlant.lastWateredAt;
+          _loading = false;
+        });
+      }
     } catch (e) {
       print('식물 정보 불러오기 실패: $e');
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  // 🚨 [새로운 기능]: 물주기 타입에 따라 일수를 매핑하는 헬퍼 함수 추가
+  String getWateringCycle(String type) {
+    switch (type) {
+      case '자주':
+        return ' (5일)';
+      case '보통':
+        return ' (10일)';
+      case '적게':
+        return ' (15일)';
+      default:
+        return '';
     }
   }
 
@@ -58,12 +75,17 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
     try {
       final accessToken = await _getAccessToken();
       await markAsWatered(_plant!.id, accessToken);
-      setState(() => _lastWateredAt = DateTime.now());
+      
+      // 물주기 일지 자동 저장
+      await createManualDiary(plantId: _plant!.id, logMessage: '물을 주었습니다.');
+
+      if (mounted) {
+        setState(() => _lastWateredAt = DateTime.now());
+      }
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
-      // 물주기 일지 자동 저장 (옵션)
-      await createManualDiary(plantId: _plant!.id, logMessage: '물을 주었습니다.');
+      ).showSnackBar(const SnackBar(content: Text('물주기 기록 및 일지 저장 완료!')));
+      
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -123,31 +145,24 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
     );
   }
 
-  // -------------------- 병해충 진단 버튼 핸들러 (수정됨) --------------------
   Future<void> _handleDiagnosis(BuildContext context) async {
     if (_plant == null) return;
 
-    // DiagnosisScreen 호출 시 plantId를 필수로 전달합니다. (에러 해결!)
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        // 'plantId' required 에러 해결: plantId 전달
-        builder: (_) => DiagnosisScreen(plantId: _plant!.id),
+        builder: (_) => DiagnosisScreen(plantId: _plant!.id), 
       ),
     );
 
-    // DiagnosisScreen에서 Navigator.pop으로 결과가 반환될 경우 처리
     if (result != null && result is Map) {
       final title = result['title'] as String?;
-      final content =
-          result['content'] as String?; // (사용 안 함: RemedyScreen으로 분리됨)
 
-      if (title != null) {
+      if (title != null && mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$title 진단 완료!')));
 
-        // -------------------- 자동 성장 일지 저장 --------------------
         try {
           await createManualDiary(
             plantId: _plant!.id,
@@ -157,16 +172,6 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
         } catch (e) {
           print('자동 성장 일지 서버 저장 실패: $e');
         }
-
-        // PlantDiaryScreen으로 이동 (선택 사항: 진단 후 일지 화면으로 이동)
-        // 현재 로직은 DiagnosisScreen의 '해결 방법 보기'를 누를 때 PlantDiaryScreen으로 가는 흐름과
-        // 충돌할 수 있으므로 주석 처리하거나 로직을 단순화하는 것을 고려해야 합니다.
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(
-        //     builder: (_) => PlantDiaryScreen(plantId: _plant!.id),
-        //   ),
-        // );
       }
     }
   }
@@ -212,14 +217,20 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
             Column(
               children: [
                 _leftInfoTile("햇빛", _plant!.lightRequirement),
-                _leftInfoTile("물 주기", _plant!.wateringType),
+                
+                // 🚨 [수정 적용]: 물주기 타입과 일수 매핑 결과를 결합하여 표시
                 _leftInfoTile(
-                    "물 준 날짜",
-                    _lastWateredAt != null
-                        ? _formatDateTime(_lastWateredAt!)
-                        : (_plant!.lastWateredAt != null
+                  "물 주기", 
+                  _plant!.wateringType + getWateringCycle(_plant!.wateringType)
+                ),
+                
+                _leftInfoTile(
+                  "물 준 날짜",
+                  _lastWateredAt != null
+                      ? _formatDateTime(_lastWateredAt!)
+                      : (_plant!.lastWateredAt != null
                               ? _formatDateTime(_plant!.lastWateredAt!)
-                              : ""),
+                              : "기록 없음"),
                 ),
                 _leftInfoTile("난이도", _plant!.difficulty),
                 _leftInfoTile("반려동물 안전", _plant!.petSafe ? "안전" : "주의"),
@@ -281,7 +292,6 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
   }
 
   Widget _centerInfoTile(String name, String species, {String? imageUrl}) {
-    // 위젯 구현부는 그대로 유지
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -319,7 +329,6 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
   }
 
   Widget _leftInfoTile(String label, String value) {
-    // 위젯 구현부는 그대로 유지
     return Card(
       color: const Color(0xFFF1F1F1),
       elevation: 0,
@@ -351,7 +360,6 @@ class _PlantInfoScreenState extends State<PlantInfoScreen> {
     );
   }
 
-  // DateTime 포맷 함수 구현
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.year}-${_twoDigits(dateTime.month)}-${_twoDigits(dateTime.day)} '
         '${_twoDigits(dateTime.hour)}:${_twoDigits(dateTime.minute)}';
