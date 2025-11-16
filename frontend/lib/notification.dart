@@ -21,6 +21,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
   // 로컬에서 화면용으로 마지막 물 준 시간 저장
   final Map<int, DateTime> _tempLastWateredAt = {};
 
+  // 🚨 [제거] _getAccessToken 함수는 api.dart의 함수들이 내부적으로 처리하므로 제거됩니다.
+  /*
   Future<String> _getAccessToken() async {
     final accessToken = await _storage.read(key: 'accessToken');
     if (accessToken == null) {
@@ -28,45 +30,48 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
     return accessToken;
   }
+  */
 
   // ---------------- 물 줬어요 버튼 ----------------
   Future<void> _handleWatering(int notificationId, int plantId) async {
     try {
-      final accessToken = await _getAccessToken();
-      await markAsWatered(plantId, accessToken);
+      // 🚨 [수정] 토큰을 로컬에서 가져오는 로직과 인자 전달 제거
+      // final accessToken = await _getAccessToken();
+      await markAsWatered(plantId); // 🟢 수정: accessToken 인자 제거
 
       setState(() {
         _wateredOrSnoozedNotifications.add(notificationId);
         _tempLastWateredAt[plantId] = DateTime.now(); // 화면용 갱신
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('물주기 기록 완료!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('물주기 기록 완료!')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('물주기 기록 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('물주기 기록 실패: $e')));
     }
   }
 
   // ---------------- 하루 미루기 버튼 ----------------
   Future<void> _handleSnooze(int notificationId, int plantId) async {
     try {
-      final accessToken = await _getAccessToken();
-      await snoozeWatering(plantId, accessToken);
+      // 🚨 [수정] 토큰을 로컬에서 가져오는 로직과 인자 전달 제거
+      // final accessToken = await _getAccessToken();
+      await snoozeWatering(plantId); // 🟢 수정: accessToken 인자 제거
 
       setState(() {
         _wateredOrSnoozedNotifications.add(notificationId);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('물주기 알림을 하루 미뤘습니다.')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('알림 미루기 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('알림 미루기 실패: $e')));
     }
   }
 
@@ -75,7 +80,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     const Color primaryColor = Color(0xFFA4B6A4);
 
     // myPlants 기반으로 물주기 알림 생성
-    final List<Map<String, dynamic>> notifications = widget.myPlants.map((plant) {
+    final List<Map<String, dynamic>> notifications = widget.myPlants.map((
+      plant,
+    ) {
       // 화면에 표시할 마지막 물 준 시간
       String lastWateredText = _tempLastWateredAt.containsKey(plant.id)
           ? '마지막 물 준 시간: ${_formatDateTime(_tempLastWateredAt[plant.id]!)}'
@@ -128,11 +135,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     itemCount: notifications.length,
                     itemBuilder: (context, index) {
                       final notification = notifications[index];
-                      final bool showButtons = !_wateredOrSnoozedNotifications.contains(notification['id']);
-                      final bool isWateringNotification = notification['type'] == 'watering';
+                      final bool showButtons = !_wateredOrSnoozedNotifications
+                          .contains(notification['id']);
+                      final bool isWateringNotification =
+                          notification['type'] == 'watering';
 
                       return ListTile(
-                        leading: const Icon(Icons.water_drop_outlined, color: Colors.blue),
+                        leading: const Icon(
+                          Icons.water_drop_outlined,
+                          color: Colors.blue,
+                        ),
                         title: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -140,7 +152,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             if (notification['lastWateredText'] != '')
                               Text(
                                 notification['lastWateredText'],
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                           ],
                         ),
@@ -149,28 +164,42 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                 children: [
                                   ElevatedButton(
                                     onPressed: () => _handleWatering(
-                                        notification['id'] as int,
-                                        notification['plantId'] as int),
+                                      notification['id'] as int,
+                                      notification['plantId'] as int,
+                                    ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.blue[50],
                                       foregroundColor: Colors.blue[700],
                                       minimumSize: Size.zero,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
                                     ),
-                                    child: const Text('물 줬어요', style: TextStyle(fontSize: 12)),
+                                    child: const Text(
+                                      '물 줬어요',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
                                   ElevatedButton(
                                     onPressed: () => _handleSnooze(
-                                        notification['id'] as int,
-                                        notification['plantId'] as int),
+                                      notification['id'] as int,
+                                      notification['plantId'] as int,
+                                    ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.orange[50],
                                       foregroundColor: Colors.orange[700],
                                       minimumSize: Size.zero,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
                                     ),
-                                    child: const Text('하루 미루기', style: TextStyle(fontSize: 12)),
+                                    child: const Text(
+                                      '하루 미루기',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
                                   ),
                                 ],
                               )
@@ -181,7 +210,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                             MaterialPageRoute(
                               builder: (context) => PlantInfoScreen(
                                 plant: widget.myPlants.firstWhere(
-                                    (p) => p.id == notification['plantId']),
+                                  (p) => p.id == notification['plantId'],
+                                ),
                               ),
                             ),
                           );

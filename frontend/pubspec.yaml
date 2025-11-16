@@ -9,8 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # ✅ 올바른 위치: flutter와 같은 레벨 (두 칸 들여쓰기)
+  dio: ^5.0.0 
   image_picker: ^1.2.0
-  flutter_secure_storage: ^9.2.4   # ← 중복 제거 후 최신 버전으로 유지
+  flutter_secure_storage: ^9.2.4
   cupertino_icons: ^1.0.8
   http: ^1.5.0
   http_parser: 4.1.2

@@ -50,12 +50,18 @@ class MyInfoScreen extends StatelessWidget {
   // 실제 회원 탈퇴 처리
   Future<void> _handleAccountDeletion(BuildContext context) async {
     try {
+      // 🚨 [제거] 로컬에서 토큰을 읽고 유효성을 검사하는 로직 제거.
+      // api.dart의 deleteAccount 함수 내부에서 처리하며, 토큰이 없으면 Exception이 던져짐.
+      /*
       final accessToken = await _storage.read(key: 'accessToken');
       if (accessToken == null) {
         throw Exception('로그인 토큰을 찾을 수 없습니다.');
       }
+      */
 
-      await deleteAccount(accessToken); // deleteAccount는 Map 반환하지만 여기선 사용 안함
+      // 🟢 [수정] deleteAccount 함수 호출 시 accessToken 인자 제거
+      await deleteAccount();
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('회원 탈퇴가 성공적으로 처리되었습니다.')));

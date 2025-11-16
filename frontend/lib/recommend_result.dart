@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'model/plant.dart';
-import 'encyclopedia_detail.dart'; 
+import 'encyclopedia_detail.dart';
 
 class ResultScreen extends StatelessWidget {
   final List<Plant> recommendations;
@@ -48,7 +48,8 @@ class ResultScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => EncyclopediaDetailScreen(plantId: plant.id),
+                  builder: (context) =>
+                      EncyclopediaDetailScreen(plantId: plant.id),
                 ),
               );
             },
@@ -60,7 +61,10 @@ class ResultScreen extends StatelessWidget {
               color: const Color(0xFFA4B6A4), // 카드 색 변경
               elevation: 4,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 50, horizontal: 20),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 50,
+                  horizontal: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
