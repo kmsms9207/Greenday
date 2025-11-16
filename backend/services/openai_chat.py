@@ -23,7 +23,7 @@ _default_headers = {
 
 async def _post_chat_completions(payload: Dict[str, Any]) -> Dict[str, Any]:
     url = f"{OPENAI_BASE_URL}/chat/completions"
-    timeout = httpx.Timeout(60.0, connect=15.0)
+    timeout = httpx.Timeout(300.0, connect=15.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         r = await client.post(url, headers=_default_headers, json=payload)
         if r.status_code >= 400:
