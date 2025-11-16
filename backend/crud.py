@@ -1,3 +1,4 @@
+# crud.py
 from typing import Optional, List
 from sqlalchemy.orm import Session, joinedload
 import models, schemas
@@ -490,3 +491,138 @@ def delete_manual_diary_entry(db: Session, diary_id: int, user_id: int) -> Optio
     db.delete(db_diary)
     db.commit()
     return db_diary
+
+# ==============================================================================
+# Chat CRUD (신규): 스레드 목록 / 메시지 조회 / 스레드 삭제
+# ==============================================================================
+
+def get_threads_with_summary(
+    db: Session,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 50,
+):
+    """
+    N+1 없이, 한 번의 쿼리로 대화 스레드 목록 + 메시지 요약 정보를 가져옵니다.
+    반환 컬럼:
+      - id, title, created_at, updated_at
+      - message_count
+      - last_message
+      - last_message_at
+    """
+    Thread = models.ChatThread
+    Message = models.ChatMessage
+
+    # 각 스레드별 메시지 개수
+    count_sub = (
+        db.query(
+            Message.thread_id.label("thread_id"),
+            func.count(Message.id).label("message_count"),
+        )
+        .group_by(Message.thread_id)
+        .subquery()
+    )
+
+    # 각 스레드별 마지막 메시지 ID
+    last_id_sub = (
+        db.query(
+            Message.thread_id.label("thread_id"),
+            func.max(Message.id).label("last_msg_id"),
+        )
+        .group_by(Message.thread_id)
+        .subquery()
+    )
+
+    query = (
+        db.query(
+            Thread.id,
+            Thread.title,
+            Thread.created_at,
+            Thread.updated_at,
+            func.coalesce(count_sub.c.message_count, 0).label("message_count"),
+            Message.content.label("last_message"),
+            Message.created_at.label("last_message_at"),
+        )
+        .outerjoin(count_sub, count_sub.c.thread_id == Thread.id)
+        .outerjoin(last_id_sub, last_id_sub.c.thread_id == Thread.id)
+        .outerjoin(Message, Message.id == last_id_sub.c.last_msg_id)
+        .filter(Thread.user_id == user_id)
+        .order_by(Thread.updated_at.desc(), Thread.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+
+    return query.all()
+
+def get_threads_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 50) -> List[models.ChatThread]:
+    """
+    (이전 버전) 사용자 소유의 대화 스레드 목록을 최신순(updated_at desc)으로 반환합니다.
+    N+1 문제 때문에 list_threads에서는 가급적 get_threads_with_summary를 사용하세요.
+    """
+    return (
+        db.query(models.ChatThread)
+        .filter(models.ChatThread.user_id == user_id)
+        .order_by(models.ChatThread.updated_at.desc(), models.ChatThread.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+def get_messages_by_thread(
+    db: Session,
+    thread_id: int,
+    user_id: int,
+    limit: int = 100,
+    before_id: Optional[int] = None,
+    after_id: Optional[int] = None,
+    asc: bool = True,
+) -> Optional[List[models.ChatMessage]]:
+    """
+    특정 스레드의 메시지 목록을 반환합니다.
+    - 소유권 확인 포함
+    - before_id/after_id로 커서 페이지네이션 지원
+    - asc=False로 최신→과거 정렬(내림차순)
+    """
+    # 소유권 확인
+    thread = (
+        db.query(models.ChatThread)
+        .filter(models.ChatThread.id == thread_id, models.ChatThread.user_id == user_id)
+        .first()
+    )
+    if not thread:
+        return None
+
+    q = db.query(models.ChatMessage).filter(models.ChatMessage.thread_id == thread_id)
+
+    if before_id is not None:
+        q = q.filter(models.ChatMessage.id < before_id)
+    if after_id is not None:
+        q = q.filter(models.ChatMessage.id > after_id)
+
+    q = q.order_by(models.ChatMessage.id.asc() if asc else models.ChatMessage.id.desc()).limit(limit)
+    rows = q.all()
+
+    # 내림차순으로 가져왔으면 프론트 편의상 다시 과거→최신으로 뒤집어 전달
+    if not asc:
+        rows.reverse()
+    return rows
+
+def delete_chat_thread(db: Session, thread_id: int, user_id: int) -> bool:
+    """
+    스레드를 삭제합니다(본인 소유만). ChatMessage에 FK가 걸려있으므로
+    안전하게 해당 스레드의 메시지를 먼저 삭제하고 스레드를 지웁니다.
+    """
+    thread = (
+        db.query(models.ChatThread)
+        .filter(models.ChatThread.id == thread_id, models.ChatThread.user_id == user_id)
+        .first()
+    )
+    if not thread:
+        return False
+
+    # 먼저 메시지 삭제
+    db.query(models.ChatMessage).filter(models.ChatMessage.thread_id == thread_id).delete(synchronize_session=False)
+    # 그 다음 스레드 삭제
+    db.delete(thread)
+    db.commit()
+    return True

@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query, Path
 from sqlalchemy.orm import Session
 
 import models, schemas
@@ -13,6 +12,7 @@ from database import get_db
 from dependencies import get_current_user
 from services.media import save_image_to_db
 from services.openai_chat import openai_chat_complete
+import crud
 
 router = APIRouter(
     prefix="/chat",
@@ -23,6 +23,9 @@ router = APIRouter(
 def _db_message_to_chatmessageout(m: models.ChatMessage) -> schemas.ChatMessageOut:
     return schemas.ChatMessageOut.model_validate(m)
 
+# ---------------------------------------------------------------------
+# (기존) 메시지 전송: POST /chat/send   ※ 원형 유지
+# ---------------------------------------------------------------------
 @router.post("/send", response_model=schemas.ChatSendResponse)
 async def chat_send(
     message: str = Form(...),
@@ -133,3 +136,78 @@ async def chat_send(
             "thread_id": thread_id,
             "assistant": _db_message_to_chatmessageout(asst_msg),
         }
+
+# ---------------------------------------------------------------------
+# (신규) 내 대화방 목록 조회: GET /chat/threads
+# ---------------------------------------------------------------------
+@router.get("/threads")
+def list_threads(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """
+    대화방 목록을 빠르고 효율적으로 반환합니다.
+    N+1 쿼리 없이 1쿼리만 실행됨.
+    """
+    rows = crud.get_threads_with_summary(
+        db=db,
+        user_id=current_user.id,
+        skip=skip,
+        limit=limit,
+    )
+
+    results = []
+    for row in rows:
+        results.append({
+            "id": row.id,
+            "title": row.title,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+            "message_count": row.message_count,
+            "last_message": row.last_message,
+            "last_message_at": row.last_message_at,
+        })
+
+    return results
+
+# ---------------------------------------------------------------------
+# (신규) 특정 대화방 메시지 조회: GET /chat/threads/{thread_id}/messages
+# ---------------------------------------------------------------------
+@router.get("/threads/{thread_id}/messages", response_model=List[schemas.ChatMessageOut])
+def get_thread_messages(
+    thread_id: int = Path(..., description="조회할 대화방 ID"),
+    limit: int = Query(100, ge=1, le=500, description="최대 메시지 개수"),
+    before_id: Optional[int] = Query(None, description="해당 ID보다 작은 메시지들(과거 방향)"),
+    after_id: Optional[int] = Query(None, description="해당 ID보다 큰 메시지들(미래/최근 방향)"),
+    asc: bool = Query(True, description="오름차순 정렬 여부(True=오름차순)"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    msgs = crud.get_messages_by_thread(
+        db=db,
+        thread_id=thread_id,
+        user_id=current_user.id,
+        limit=limit,
+        before_id=before_id,
+        after_id=after_id,
+        asc=asc,
+    )
+    if msgs is None:
+        raise HTTPException(status_code=404, detail="THREAD_NOT_FOUND")
+    return [ _db_message_to_chatmessageout(m) for m in msgs ]
+
+# ---------------------------------------------------------------------
+# (신규) 대화방 삭제: DELETE /chat/threads/{thread_id}
+# ---------------------------------------------------------------------
+@router.delete("/threads/{thread_id}")
+def delete_thread(
+    thread_id: int = Path(..., description="삭제할 대화방 ID"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    ok = crud.delete_chat_thread(db=db, thread_id=thread_id, user_id=current_user.id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="THREAD_NOT_FOUND")
+    return {"deleted": True, "thread_id": thread_id}
