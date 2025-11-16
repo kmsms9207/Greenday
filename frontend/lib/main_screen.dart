@@ -207,6 +207,17 @@ class HomePage extends StatelessWidget {
                     );
                   },
                 ),
+                const SizedBox(height: 10), // 카드 사이의 세로 간격
+                _buildFeatureCard(
+                  context,
+                  title: '커뮤니티',
+                  icon: Icons.people_alt_outlined, // 커뮤니티 아이콘 사용
+                  onTap: () {
+                    // TODO: 커뮤니티 화면(CommunityScreen)으로 이동하는 로직 추가 필요
+                    // Navigator.push(context, MaterialPageRoute(builder: (context) => const CommunityScreen()));
+                    print('커뮤니티');
+                  },
+                ),
               ],
             ),
 

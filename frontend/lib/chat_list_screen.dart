@@ -1,4 +1,4 @@
-// lib/screens/chat_list_screen.dart 파일 전체
+// lib/screens/chat_list_screen.dart 파일 전체 (수정된 코드)
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -30,9 +30,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   // 대화방으로 이동
-  void _navigateToChat(ThreadInfo? thread) {
-    // 현재 목록 화면을 닫고, 새로운 ChatbotScreen으로 교체하며 이동합니다.
-    Navigator.pushReplacement(
+  void _navigateToChat(ThreadInfo? thread) async {
+    // 🚨 [수정]: pushReplacement 대신 일반 push를 사용하고 결과를 기다립니다.
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatbotScreen(
@@ -42,6 +42,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
         ),
       ),
     );
+
+    // 🚨 [수정]: 챗봇 화면에서 true를 반환하면 (새 대화가 저장되었거나 업데이트되었다면) 목록을 새로고침합니다.
+    if (result == true) {
+      _refreshThreads();
+    }
   }
 
   @override

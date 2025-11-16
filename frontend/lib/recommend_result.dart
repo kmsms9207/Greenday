@@ -1,3 +1,5 @@
+// lib/screens/recommend_result.dart 파일 전체 (수정 완료)
+
 import 'package:flutter/material.dart';
 import 'model/plant.dart';
 
@@ -15,6 +17,7 @@ class ResultScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
+          // 🚨 [수정]: 단순 pop으로 복구합니다. (이전 화면이 MainScreen이므로 홈으로 복귀)
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text.rich(
@@ -55,17 +58,18 @@ class ResultScreen extends StatelessWidget {
                   Container(
                     width: 120,
                     height: 120,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.white, // 카드 배경색
                       shape: BoxShape.circle,
                     ),
                     child: ClipOval(
                       child: plant.imageUrl.isNotEmpty
-                          ? Image.network(
-                              plant.imageUrl,
-                              fit: BoxFit.cover,
-                            )
-                          : const Icon(Icons.eco, size: 60, color: Color(0xFF486B48)), // 이미지 없을 때 eco 아이콘
+                          ? Image.network(plant.imageUrl, fit: BoxFit.cover)
+                          : const Icon(
+                              Icons.eco,
+                              size: 60,
+                              color: Color(0xFF486B48),
+                            ), // 이미지 없을 때 eco 아이콘
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -86,12 +90,18 @@ class ResultScreen extends StatelessWidget {
                     children: [
                       Text(
                         "난이도: ${plant.difficulty}",
-                        style: const TextStyle(fontSize: 14, color: Colors.black54),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         plant.description,
-                        style: const TextStyle(fontSize: 14, color: Colors.black54),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 6),

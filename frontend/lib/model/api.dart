@@ -13,7 +13,7 @@ import 'dart:async';
 
 // ---------------------- 설정 ----------------------
 const String baseUrl =
-    "https://f9fae591fe6d.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
+    "https://feb991a69212.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
 final _storage = const FlutterSecureStorage();
 
 Future<String> _getAccessToken() async {
