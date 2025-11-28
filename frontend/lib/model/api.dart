@@ -1,4 +1,4 @@
-// lib/model/api.dart 파일 전체 (deleteChatThread 추가 완료)
+// lib/model/api.dart (최종 수정본)
 
 import 'dart:convert';
 import 'dart:io';
@@ -11,12 +11,13 @@ import 'remedy_model.dart'; // RemedyAdvice 모델 정의 파일
 import 'package:http_parser/http_parser.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'media_model.dart'; // 👈 [신규] MediaUploadResponse 모델 import
 
 // ---------------------- 설정 및 기본 인스턴스 ----------------------
 final Dio _dio = Dio();
 // 🟢 [수정] baseUrl 공용으로 선언
 const String baseUrl =
-    "https://276d349f8bc4.ngrok-free.app"; // 🚨 현재 사용 중인 Base URL
+    "http://3.38.142.173:8000";// 🚨 현재 사용 중인 Base URL
 final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
 // 🟢 [통합] 모든 API 호출에 사용할 인증 헤더를 구성하는 함수
@@ -337,9 +338,10 @@ Future<bool> deleteChatThread(int threadId) async {
 }
 
 // ---------------------- AI 진단 ----------------------
-// 🟢 [수정] _getAuthHeaders 적용 및 Multipart Request 헤더 설정 방식 변경
-Future<DiagnosisResponse> diagnosePlant(File imageFile, int plantId) async {
-  final url = Uri.parse('$baseUrl/diagnose/auto');
+
+// 🟢 [수정 - 1단계] 미디어 업로드 API (파일 -> URL 반환)
+Future<MediaUploadResponse> uploadMedia(File imageFile) async {
+  final url = Uri.parse('$baseUrl/media/upload'); // 👈 [신규] 업로드 API 주소
 
   var request = http.MultipartRequest('POST', url);
 
@@ -347,27 +349,67 @@ Future<DiagnosisResponse> diagnosePlant(File imageFile, int plantId) async {
   final headers = await _getAuthHeaders(isJson: false);
   request.headers.addAll(headers);
 
-  // MIME Type을 명시적으로 'image/jpeg'로 지정
   request.files.add(
     await http.MultipartFile.fromPath(
-      'image', // 서버가 요구하는 필드 이름
+      'image',
       imageFile.path,
       // MIME Type 명시 (JPG 파일 기준)
       contentType: MediaType('image', 'jpeg'),
     ),
   );
 
-  // plantId 필드 추가
-  request.fields['plant_id'] = plantId.toString();
+  print('Requesting POST: $url (Uploading image)');
 
-  final streamedResponse = await request.send();
-  final response = await http.Response.fromStream(streamedResponse);
-  final responseBody = utf8.decode(response.bodyBytes);
+  try {
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    final responseBody = utf8.decode(response.bodyBytes);
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    return DiagnosisResponse.fromJson(jsonDecode(responseBody));
-  } else {
-    throw Exception('진단 실패: ${response.statusCode} - $responseBody');
+    if (response.statusCode == 201) { // 201 Created
+      print('이미지 업로드 성공: $responseBody');
+      // 👈 [신규] MediaUploadResponse 모델로 파싱
+      return MediaUploadResponse.fromJson(jsonDecode(responseBody));
+    } else {
+      print('이미지 업로드 실패: ${response.statusCode}, $responseBody');
+      throw Exception('이미지 업로드 실패: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('이미지 업로드 중 오류 발생: $e');
+    throw Exception('이미지 업로드 중 오류 발생: $e');
+  }
+}
+
+// 🟢 [수정 - 2단계 통합] AI 진단 API (파일 기반 -> URL 기반으로 변경 및 통합)
+// 기존 diagnosePlant(File, int) 함수와 diagnosePlantWithImageUrl(int, String, String)을 대체함
+Future<DiagnosisResponse> diagnosePlant(int plantId, String imageUrl) async {
+  // 👈 [수정] API 주소 변경
+  final url = Uri.parse('$baseUrl/plants/$plantId/diagnose-llm');
+
+  print('Requesting POST: $url (Requesting diagnosis)');
+
+  try {
+    final response = await http.post(
+      url,
+      headers: await _getAuthHeaders(), // 👈 [수정] JSON 헤더 사용
+      // 👈 [수정] JSON Body 전송
+      body: jsonEncode({
+        'image_url': imageUrl,
+        'prompt_key': 'default'
+      }),
+    );
+
+    final responseBody = utf8.decode(response.bodyBytes);
+
+    if (response.statusCode == 200) {
+      print('진단 성공: $responseBody');
+      return DiagnosisResponse.fromJson(jsonDecode(responseBody));
+    } else {
+      print('진단 실패: ${response.statusCode}, $responseBody');
+      throw Exception('진단 실패: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('진단 요청 중 오류 발생: $e');
+    throw Exception('진단 요청 중 오류 발생: $e');
   }
 }
 
@@ -442,41 +484,9 @@ Future<void> createManualDiary({
   }
 }
 
-// ---------------------- 미디어 업로드 (1단계) ----------------------
-// 🟢 [수정] _getAuthHeaders 적용 및 Multipart Request 헤더 설정 방식 변경
-Future<String> uploadMedia(File imageFile) async {
-  final url = Uri.parse('$baseUrl/media/upload');
-
-  var request = http.MultipartRequest('POST', url);
-
-  // ⭐️ _getAuthHeaders 적용
-  final headers = await _getAuthHeaders(isJson: false);
-  request.headers.addAll(headers);
-
-  // 🟢 [수정] contentType을 명시적으로 추가하여 "이미지 파일만" 오류 해결
-  request.files.add(
-    await http.MultipartFile.fromPath(
-      'image',
-      imageFile.path,
-      // 🟢 이 부분이 추가되었습니다 (diagnosePlant 함수 참고)
-      contentType: MediaType('image', 'jpeg'),
-    ),
-  );
-
-  final streamedResponse = await request.send();
-  final response = await http.Response.fromStream(streamedResponse);
-  final responseBody = utf8.decode(response.bodyBytes);
-
-  if (response.statusCode == 201) {
-    final Map<String, dynamic> json = jsonDecode(responseBody);
-    return json['image_url'];
-  } else {
-    throw Exception('미디어 업로드 실패: ${response.statusCode} - $responseBody');
-  }
-}
-
 // ---------------------- 진단 요청 (2단계) ----------------------
-// 🟢 [수정] _getAuthHeaders 적용
+// ❌ [삭제] diagnosePlant 함수로 통합되었음
+/*
 Future<DiagnosisResponse> diagnosePlantWithImageUrl({
   required int plantId,
   required String imageUrl,
@@ -498,6 +508,7 @@ Future<DiagnosisResponse> diagnosePlantWithImageUrl({
     throw Exception('진단 요청 실패: ${response.statusCode} - $responseBody');
   }
 }
+*/
 
 // ---------------------- 성장일지 Diary 모델 ----------------------
 class DiaryEntry {
@@ -556,8 +567,8 @@ Future<List<DiaryEntry>> fetchDiary(int plantId) async {
 // ---------------------- 식물 추천 API (Dio 기반) ----------------------
 // 🟢 [추가] recommend.dart에서 사용하는 public 함수 (Dio를 내부에서 사용)
 Future<Response> sendRecommendationRequest(
-  Map<String, dynamic> requestData,
-) async {
+    Map<String, dynamic> requestData,
+    ) async {
   try {
     // _dio 및 baseUrl, _getAuthHeaders()는 api.dart 내부에 정의되어 있으므로 직접 사용 가능
     final response = await _dio.post(
@@ -592,9 +603,9 @@ Future<List<Map<String, dynamic>>?> getCommunityPosts() async {
 
 // 2. (POST) 새 게시글 작성
 Future<Map<String, dynamic>?> createCommunityPost(
-  String title,
-  String content,
-) async {
+    String title,
+    String content,
+    ) async {
   try {
     final response = await _dio.post(
       '$baseUrl/community/posts/', // 🟢 baseUrl 사용
@@ -630,10 +641,10 @@ Future<Map<String, dynamic>?> getCommunityPostDetail(int postId) async {
 
 // 4. (PUT) 게시글 수정
 Future<Map<String, dynamic>?> updateCommunityPost(
-  int postId,
-  String title,
-  String content,
-) async {
+    int postId,
+    String title,
+    String content,
+    ) async {
   try {
     final response = await _dio.put(
       '$baseUrl/community/posts/$postId', // 🟢 baseUrl 사용
@@ -684,9 +695,9 @@ Future<Map<String, dynamic>?> createComment(int postId, String content) async {
 
 // 7. (PUT) 댓글 수정
 Future<Map<String, dynamic>?> updateComment(
-  int commentId,
-  String content,
-) async {
+    int commentId,
+    String content,
+    ) async {
   try {
     final response = await _dio.put(
       '$baseUrl/community/comments/$commentId', // 🟢 baseUrl 사용

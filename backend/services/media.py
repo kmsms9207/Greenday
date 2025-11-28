@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 # Note: we create these at module import time to avoid re-creating engine per call.
 _DB_URL = getattr(config.settings, "DB_URL", None)
 if not _DB_URL:
+
+    
     # It's okay if DB_URL is missing in some dev contexts; DB bypass will fail gracefully.
     _engine = None
     SessionLocal = None

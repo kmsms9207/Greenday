@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../model/api.dart';
+import '../model/api.dart'; // createManualDiary, uploadMedia
+import '../model/media_model.dart'; // MediaUploadResponse (api.dart import를 통해 간접 사용)
 
 class PlantDiaryFormScreen extends StatefulWidget {
   final int plantId;
@@ -66,7 +67,12 @@ class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
     try {
       String? imageUrl;
       if (_selectedImage != null) {
-        imageUrl = await uploadMedia(_selectedImage!);
+        // --- ⬇️ [핵심 수정] MediaUploadResponse 처리 ⬇️ ---
+        // 1. MediaUploadResponse 객체를 받습니다.
+        final MediaUploadResponse uploadResponse = await uploadMedia(_selectedImage!);
+        // 2. 객체 안의 imageUrl 문자열만 꺼내서 할당합니다.
+        imageUrl = uploadResponse.imageUrl;
+        // --- ⬆️ [핵심 수정 완료] ⬆️ ---
       }
 
       // 🟢 [수정] logType 결정 (이미지가 있으면 PHOTO, 없으면 NOTE)
@@ -126,7 +132,7 @@ class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose(); // 🟢 dispose 추가
+    _titleController.dispose();
     _contentController.dispose();
     super.dispose();
   }
@@ -173,13 +179,13 @@ class _PlantDiaryFormScreenState extends State<PlantDiaryFormScreen> {
                 onPressed: _uploading ? null : _saveDiary,
                 icon: _uploading
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
                     : const Icon(Icons.save),
                 label: Text(_uploading ? '저장 중...' : '일지 저장'),
                 style: ElevatedButton.styleFrom(

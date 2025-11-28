@@ -25,6 +25,18 @@ frontend/ios/Flutter/engine
 frontend/ios/Flutter/flutter_assets 
 frontend/ios/Flutter/.last_build_id 
 
+
+
+# Gradle & Android Build Files
+**/.gradle/
+**/build/
+**/local.properties
+**/.idea/
+**/.dart_tool/  # Dart/Flutter 내부 도구 폴더
+
+# Lock files that should be ignored
+checksums.lock
+
 # === IDE 설정 === 
 .vscode/ .idea/ # 
 

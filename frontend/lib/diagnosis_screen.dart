@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'model/api.dart'; // diagnosePlant, fetchRemedy, createManualDiary
+import 'model/api.dart'; // diagnosePlant, fetchRemedy, createManualDiary, uploadMedia
 import 'model/diagnosis_model.dart'; // DiagnosisResponse
 import 'remedy_screen.dart'; // RemedyScreen
 
@@ -45,7 +45,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
   }
 
-  // 진단 + 로그 저장
+  // 진단 + 로그 저장 (API 호출 로직 수정)
   Future<void> _handleDiagnosis() async {
     if (_selectedImage == null) {
       ScaffoldMessenger.of(
@@ -61,8 +61,15 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     });
 
     try {
-      // 1. 진단 API 호출
-      final result = await diagnosePlant(_selectedImage!, widget.plantId);
+      // --- ⬇️ 2단계 API 호출 로직 ⬇️ ---
+      // 1단계: 이미지 업로드
+      print("1단계: 미디어 업로드 시작...");
+      final uploadResponse = await uploadMedia(_selectedImage!);
+
+      // 2단계: 진단 요청 (업로드된 URL 사용)
+      print("2단계: 진단 요청 시작... (imageUrl: ${uploadResponse.imageUrl})");
+      final result = await diagnosePlant(widget.plantId, uploadResponse.imageUrl);
+      // --- ⬆️ 2단계 API 호출 로직 완료 ⬆️ ---
 
       setState(() {
         _diagnosisResult = result;
@@ -70,23 +77,25 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
 
       if (result.isSuccess) {
         // 2. 처방전 가져오기
-        final remedy = await fetchRemedy(result.label);
+        // 🚨 이 로직은 guide 필드를 사용하도록 최적화 가능하나, 현재 구조를 유지함.
+        final remedy = await fetchRemedy(result.diseaseKey); // 🟢 [수정] label 대신 diseaseKey 사용
         setState(() {
           _immediateActions = remedy.immediateActions;
         });
 
+        // 🟢 [수정] labelKo 대신 diseaseKo 사용
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('${result.labelKo} 진단 완료')));
+        ).showSnackBar(SnackBar(content: Text('${result.diseaseKo} 진단 완료')));
 
         // 3. DIAGNOSIS 로그 저장
         try {
-          // 🟢 [수정] title 필드 추가 (모델 동기화)
           await createManualDiary(
             plantId: widget.plantId,
             title: "AI 진단", // 🟢 title 추가
-            logMessage: "'${result.labelKo}' 진단 완료",
+            logMessage: "'${result.diseaseKo}' 진단 완료", // 🟢 [수정] labelKo 대신 diseaseKo 사용
             logType: 'DIAGNOSIS', // logType 유지
+            imageUrl: uploadResponse.imageUrl, // 🟢 [추가] 업로드된 이미지 URL을 일지에 저장
           );
         } catch (e) {
           // 로그 저장 실패는 진단 성공과 분리하여 사용자에게 알림
@@ -96,9 +105,10 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         }
       }
     } catch (e) {
+      print('진단 프로세스 오류: $e'); // 오류 로깅 추가
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('진단에 실패했습니다: $e')));
+      ).showSnackBar(SnackBar(content: Text('진단에 실패했습니다: ${e.toString()}')));
     } finally {
       setState(() {
         _isLoading = false;
@@ -112,14 +122,14 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => RemedyScreen(diseaseKey: _diagnosisResult!.label),
+        // 🟢 [수정] label 대신 diseaseKey 사용
+        builder: (context) => RemedyScreen(diseaseKey: _diagnosisResult!.diseaseKey),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // ... (build 메서드 및 UI 헬퍼 위젯들은 기존 코드와 동일) ...
     return Scaffold(
       appBar: AppBar(title: const Text("AI 식물 진단")),
       body: SingleChildScrollView(
@@ -153,12 +163,12 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       ),
       child: _selectedImage != null
           ? ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(_selectedImage!, fit: BoxFit.cover),
-            )
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(_selectedImage!, fit: BoxFit.cover),
+      )
           : const Center(
-              child: Text('사진을 선택해주세요', style: TextStyle(color: Colors.grey)),
-            ),
+        child: Text('사진을 선택해주세요', style: TextStyle(color: Colors.grey)),
+      ),
     );
   }
 
@@ -202,8 +212,9 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 🟢 [수정] labelKo 대신 diseaseKo 사용
           Text(
-            '✅ ${_diagnosisResult!.labelKo}',
+            '✅ ${_diagnosisResult!.diseaseKo}',
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
@@ -211,9 +222,10 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
             '신뢰도: ${(_diagnosisResult!.score * 100).toStringAsFixed(1)}%',
             style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
           ),
+          // 🟢 [수정] severity 필드가 nullable이므로 안전하게 접근
           if (_diagnosisResult!.severity != null)
             Text(
-              '심각도: ${_diagnosisResult!.severity}',
+              '심각도: ${_diagnosisResult!.severity!}',
               style: const TextStyle(
                 fontSize: 16,
                 color: Colors.red,
@@ -250,6 +262,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          // 🟢 [수정] reasonKo 필드가 nullable이므로 안전하게 접근
           Text(
             _diagnosisResult!.reasonKo ?? 'AI가 사진을 인식하기 어렵습니다. 다시 시도해주세요.',
             style: const TextStyle(fontSize: 16),

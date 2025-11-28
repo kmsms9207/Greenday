@@ -82,7 +82,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   // 회원가입 API를 호출하는 함수
   Future<void> attemptSignUp() async {
     // 보내주신 코드의 최신 URL을 반영합니다.
-    const String apiUrl = "https://276d349f8bc4.ngrok-free.app/auth/signup";
+    const String apiUrl = "http://3.38.142.173:8000/auth/signup";
     if (_passwordController.text != _passwordCheckController.text) {
       ScaffoldMessenger.of(
         context,
